@@ -1,0 +1,23 @@
+{
+  "files.readonlyInclude": {
+    "Cargo.lock": true,
+    "target": true
+  },
+  "files.watcherExclude": {
+    "target": true,
+    ".env": true
+  },
+  "search.exclude": {
+    "target": true,
+    ".env": true
+  },
+  "files.eol": "\n",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "always",
+    "source.organizeImports": "always"
+  },
+  "[json]": {
+    "files.insertFinalNewline": true
+  },
+}
