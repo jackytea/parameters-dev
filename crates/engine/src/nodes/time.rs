@@ -5,6 +5,10 @@ use crate::node::{BoxFuture, Inputs, Node, NodeContext, NodeError, Values};
 pub(crate) struct TimeWait;
 
 impl Node for TimeWait {
+    fn description(&self) -> &'static str {
+        "Waits for a duration such as `30s`, `5m` or `1h`."
+    }
+
     fn signature(&self) -> Signature {
         Signature {
             inputs: vec![Port::required("duration", ValueType::Text)],
@@ -24,6 +28,10 @@ impl Node for TimeWait {
 pub(crate) struct LogWrite;
 
 impl Node for LogWrite {
+    fn description(&self) -> &'static str {
+        "Adds a message to the run's log."
+    }
+
     fn signature(&self) -> Signature {
         Signature {
             inputs: vec![Port::required("message", ValueType::Text)],

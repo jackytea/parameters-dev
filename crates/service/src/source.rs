@@ -1,5 +1,8 @@
-use parameters_api::{ApiError, Problem, Severity, Source, TextPosition, TextRange};
-use parameters_core::{Catalog, Code, LoadError, Workflow, from_json, validate};
+use std::collections::HashSet;
+
+use parameters_api::{ApiError, Format, Problem, Severity, Source, TextPosition, TextRange};
+use parameters_core::layout::complete_layouts;
+use parameters_core::{Catalog, Code, LoadError, Workflow, from_json, to_json, validate};
 
 pub(crate) fn check(source: &Source, catalog: &dyn Catalog) -> (Option<Workflow>, Vec<Problem>) {
     match source {
@@ -32,6 +35,40 @@ pub(crate) fn load(source: &Source, catalog: &dyn Catalog) -> Result<Workflow, A
         (Some(workflow), _) => Ok(workflow),
         (None, problems) => Err(invalid(problems)),
     }
+}
+
+pub(crate) fn declared(source: &Source) -> HashSet<String> {
+    let workflow = match source {
+        Source::Text(text) => Some(parameters_lang::parse(text).workflow),
+        Source::Json(text) => from_json(text).ok(),
+    };
+    workflow.map_or_else(HashSet::new, |workflow| {
+        workflow.definitions.keys().map(str::to_owned).collect()
+    })
+}
+
+pub(crate) fn convert(source: &Source, to: Format) -> Result<String, ApiError> {
+    let mut workflow = match source {
+        Source::Text(text) => {
+            let parsed = parameters_lang::parse(text);
+            if parsed.has_errors() {
+                return Err(invalid(
+                    parsed.diagnostics.iter().map(Problem::from).collect(),
+                ));
+            }
+            parsed.workflow
+        }
+        Source::Json(text) => {
+            from_json(text).map_err(|error| invalid(vec![load_problem(&error)]))?
+        }
+    };
+    Ok(match to {
+        Format::Text => parameters_lang::print(&workflow),
+        Format::Json => {
+            complete_layouts(&mut workflow);
+            to_json(&workflow)
+        }
+    })
 }
 
 pub(crate) fn invalid(problems: Vec<Problem>) -> ApiError {
@@ -95,6 +132,18 @@ mod tests {
         assert!(problems[0].range.is_some());
         let error = load(&Source::Json("[]".into()), &registry).unwrap_err();
         assert!(matches!(error, ApiError::Invalid { .. }), "{error:?}");
+    }
+
+    #[test]
+    fn converts_both_ways_without_validating_node_types() {
+        let text = "workflow \"Custom\"\n\nstep a uses acme.unknown\n";
+        let json = convert(&Source::Text(text.into()), Format::Json).unwrap();
+        assert!(json.contains("\"layout\""), "{json}");
+        assert_eq!(convert(&Source::Json(json), Format::Text).unwrap(), text);
+        assert!(matches!(
+            convert(&Source::Text("step".into()), Format::Json),
+            Err(ApiError::Invalid { .. })
+        ));
     }
 
     #[test]

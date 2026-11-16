@@ -11,6 +11,17 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+parameters-api.workspace = true
 parameters-core.workspace = true
 parameters-lang.workspace = true
 parameters-service.workspace = true
+rmcp.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio-util.workspace = true
+
+[dev-dependencies]
+parameters-store.workspace = true
+sqlx.workspace = true
+tokio = { workspace = true, features = ["macros", "net"] }

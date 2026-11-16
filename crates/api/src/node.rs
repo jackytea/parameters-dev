@@ -1,4 +1,4 @@
-use parameters_core::Definition;
+use parameters_core::{Definition, ValueType};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
@@ -42,4 +42,31 @@ pub enum Resolution {
     Rename(String),
     UseExisting,
     Replace,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum NodeKind {
+    Builtin,
+    Custom,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PortInfo {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub value_type: ValueType,
+    pub required: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NodeInfo {
+    pub type_name: String,
+    pub kind: NodeKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub privileged: bool,
+    pub inputs: Vec<PortInfo>,
+    pub outputs: Vec<PortInfo>,
+    pub example: String,
 }

@@ -105,14 +105,14 @@ async fn workflows_are_versioned_paged_and_deleted(pool: PgPool) {
         )
         .await
         .unwrap();
-    assert_eq!(created.summary.version, 1);
-    assert_eq!(created.summary.updated_via, Via::Mcp);
+    assert_eq!(created.record.summary.version, 1);
+    assert_eq!(created.record.summary.updated_via, Via::Mcp);
     assert_eq!(
-        created.document.layout.len(),
+        created.record.document.layout.len(),
         1,
         "layout is completed on save"
     );
-    let id = created.summary.id;
+    let id = created.record.summary.id;
     let updated = service
         .update_workflow(
             &UI,
@@ -123,10 +123,13 @@ async fn workflows_are_versioned_paged_and_deleted(pool: PgPool) {
         .await
         .unwrap();
     assert_eq!(
-        (updated.summary.version, updated.summary.name.as_str()),
+        (
+            updated.record.summary.version,
+            updated.record.summary.name.as_str()
+        ),
         (2, "Renamed")
     );
-    assert_ne!(updated.hash, created.hash);
+    assert_ne!(updated.record.hash, created.record.hash);
     let stale = service
         .update_workflow(&MCP, id, 1, &text("workflow \"Lost\"\n"))
         .await
@@ -200,9 +203,13 @@ async fn invalid_workflows_are_rejected_with_problems(pool: PgPool) {
     };
     assert_eq!(problems[0].code, "P0302");
     assert_eq!(problems[0].range.unwrap().start.line, 4);
-    let problems = service.check(&Source::Json(
-        "{\"parameters\": 1, \"name\": \"A\", \"stpes\": []}".into(),
-    ));
+    let problems = service
+        .validate(
+            &MCP,
+            &Source::Json("{\"parameters\": 1, \"name\": \"A\", \"stpes\": []}".into()),
+        )
+        .await
+        .unwrap();
     assert_eq!(problems[0].code, "P0001");
     assert!(
         problems[0].message.contains("stpes"),
@@ -232,7 +239,7 @@ async fn runs_stream_live_updates_and_mask_secrets(pool: PgPool) {
         )
         .await
         .unwrap();
-    let id = workflow.summary.id;
+    let id = workflow.record.summary.id;
     let bad = service
         .start_run(&UI, id, Map::from_iter([("nmae".to_owned(), json!("x"))]))
         .await
@@ -291,7 +298,7 @@ async fn privileged_workflows_need_a_person_to_approve_each_version(pool: PgPool
         )
         .await
         .unwrap();
-    let id = workflow.summary.id;
+    let id = workflow.record.summary.id;
     let blocked = service.start_run(&MCP, id, Map::new()).await.unwrap_err();
     let ApiError::ApprovalRequired { review, .. } = blocked else {
         panic!("{blocked:?}");
@@ -346,7 +353,7 @@ async fn runs_can_be_cancelled_while_queued_or_running(pool: PgPool) {
         )
         .await
         .unwrap();
-    let id = workflow.summary.id;
+    let id = workflow.record.summary.id;
     let queued = service.start_run(&UI, id, Map::new()).await.unwrap();
     assert_eq!(
         service.cancel_run(&UI, queued.id).await.unwrap(),
@@ -386,7 +393,7 @@ async fn runs_survive_a_server_restart(pool: PgPool) {
         .create_workflow(&UI, &text("workflow \"Long\"\n\nstep pause uses time.wait\n  duration is \"1s\"\n\nstep finish uses log.write\n  after pause\n  message is \"done\"\n"))
         .await
         .unwrap();
-    let id = workflow.summary.id;
+    let id = workflow.record.summary.id;
     let background = first.run_in_background().await.unwrap();
     let graceful = first.start_run(&UI, id, Map::new()).await.unwrap();
     wait_for(&first, graceful.id, RunState::Running).await;
@@ -444,7 +451,7 @@ async fn runs_that_keep_crashing_are_failed(pool: PgPool) {
         .await
         .unwrap();
     let run = service
-        .start_run(&UI, workflow.summary.id, Map::new())
+        .start_run(&UI, workflow.record.summary.id, Map::new())
         .await
         .unwrap();
     for attempt in 1..=3 {

@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use parameters_core::Workflow;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
@@ -29,6 +31,13 @@ impl Via {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Format {
+    Text,
+    Json,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "format", content = "content", rename_all = "lowercase")]
 pub enum Source {
@@ -54,4 +63,14 @@ pub struct WorkflowRecord {
     pub summary: WorkflowSummary,
     pub hash: String,
     pub document: Workflow,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SavedWorkflow {
+    #[serde(flatten)]
+    pub record: WorkflowRecord,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub added_nodes: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub renamed_nodes: BTreeMap<String, String>,
 }

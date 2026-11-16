@@ -10,6 +10,10 @@ const ERROR_BODY_PREVIEW: usize = 300;
 pub(crate) struct HttpRequest;
 
 impl Node for HttpRequest {
+    fn description(&self) -> &'static str {
+        "Sends an HTTP request. `method` defaults to GET. Send a `body` (text as is, anything else as JSON) or a `file`, not both. Fails on status 400 and above. JSON responses are parsed into `body`."
+    }
+
     fn signature(&self) -> Signature {
         use ValueType::{Any, Number, Object, Path, Text};
         Signature {

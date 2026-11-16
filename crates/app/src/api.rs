@@ -3,8 +3,9 @@ use std::collections::BTreeMap;
 use dioxus::fullstack::ServerEvents;
 use dioxus::prelude::*;
 use parameters_api::{
-    ImportItem, NodeRecord, NodeSummary, Page, Problem, Resolution, Review, RunState, RunSummary,
-    RunUpdate, SecretSummary, Source, Uuid, WorkflowRecord, WorkflowSummary,
+    Format, ImportItem, NodeInfo, NodeRecord, NodeSummary, Page, Problem, Resolution, Review,
+    RunState, RunSummary, RunUpdate, SavedWorkflow, SecretSummary, Source, Uuid, WorkflowRecord,
+    WorkflowSummary,
 };
 use parameters_core::{Definition, OrderedMap};
 use serde_json::{Map, Value};
@@ -24,7 +25,7 @@ pub(crate) async fn list_workflows(
 }
 
 #[post("/api/workflows")]
-pub(crate) async fn create_workflow(source: Source) -> Result<WorkflowRecord, Failure> {
+pub(crate) async fn create_workflow(source: Source) -> Result<SavedWorkflow, Failure> {
     Ok(service()?.create_workflow(&ui(), &source).await?)
 }
 
@@ -38,7 +39,7 @@ pub(crate) async fn update_workflow(
     id: Uuid,
     version: i32,
     source: Source,
-) -> Result<WorkflowRecord, Failure> {
+) -> Result<SavedWorkflow, Failure> {
     Ok(service()?
         .update_workflow(&ui(), id, version, &source)
         .await?)
@@ -50,9 +51,14 @@ pub(crate) async fn delete_workflow(id: Uuid) -> Result<(), Failure> {
 }
 
 #[post("/api/check")]
-#[allow(clippy::unused_async, reason = "server functions are async")]
 pub(crate) async fn check_workflow(source: Source) -> Result<Vec<Problem>, Failure> {
-    Ok(service()?.check(&source))
+    Ok(service()?.validate(&ui(), &source).await?)
+}
+
+#[post("/api/convert")]
+#[allow(clippy::unused_async, reason = "server functions are async")]
+pub(crate) async fn convert_workflow(source: Source, to: Format) -> Result<String, Failure> {
+    Ok(service()?.convert(&source, to)?)
 }
 
 #[get("/api/workflows/{id}/review")]
@@ -116,6 +122,16 @@ pub(crate) async fn set_secret(name: String, value: String) -> Result<(), Failur
 #[delete("/api/secrets/{name}")]
 pub(crate) async fn delete_secret(name: String) -> Result<(), Failure> {
     Ok(service()?.delete_secret(&ui(), &name).await?)
+}
+
+#[get("/api/node-catalog")]
+pub(crate) async fn node_catalog() -> Result<Vec<NodeInfo>, Failure> {
+    Ok(service()?.node_catalog(&ui()).await?)
+}
+
+#[get("/api/node-catalog/{type_name}")]
+pub(crate) async fn describe_node(type_name: String) -> Result<NodeInfo, Failure> {
+    Ok(service()?.describe_node(&ui(), &type_name).await?)
 }
 
 #[get("/api/nodes")]

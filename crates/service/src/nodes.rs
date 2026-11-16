@@ -1,21 +1,23 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use parameters_api::{
-    ApiError, ImportItem, ImportStatus, NodeRecord, NodeSummary, Problem, Resolution,
-    WorkflowSummary,
+    ApiError, ImportItem, ImportStatus, NodeInfo, NodeKind, NodeRecord, NodeSummary, Problem,
+    Resolution, WorkflowSummary,
 };
 use parameters_core::name::is_valid_node_type;
 use parameters_core::{
-    Catalog, Definition, MergeStatus, OrderedMap, Workflow, merge_definitions, plan_merge,
-    rename_node_type, validate,
+    Catalog, Definition, MergeStatus, OrderedMap, Signature, Workflow, merge_definitions,
+    plan_merge, rename_node_type, validate,
 };
+use parameters_engine::Registry;
 use parameters_store::{LibraryChange, StoredNode, hex};
 use uuid::Uuid;
 
+use crate::library::node_info;
 use crate::{Actor, Result, Service, internal, source};
 
-struct Library {
-    workflow: Workflow,
+pub(crate) struct Library {
+    pub(crate) workflow: Workflow,
     stored: HashMap<String, StoredNode>,
 }
 
@@ -28,6 +30,41 @@ impl Service {
             .into_iter()
             .map(|stored| record(stored).map(|record| record.summary))
             .collect()
+    }
+
+    pub async fn node_catalog(&self, actor: &Actor) -> Result<Vec<NodeInfo>> {
+        let registry = self.registry();
+        let mut catalog: Vec<NodeInfo> = registry
+            .node_types()
+            .into_iter()
+            .filter_map(|name| Some((name, registry.signature(name)?)))
+            .map(|(name, signature)| builtin_info(registry, name, signature))
+            .collect();
+        let library = self.library(actor.user).await?;
+        catalog.extend(
+            library
+                .workflow
+                .definitions
+                .iter()
+                .map(|(name, definition)| {
+                    custom_info(name, definition, &library.workflow, registry)
+                }),
+        );
+        Ok(catalog)
+    }
+
+    pub async fn describe_node(&self, actor: &Actor, type_name: &str) -> Result<NodeInfo> {
+        let registry = self.registry();
+        if let Some(signature) = registry.signature(type_name) {
+            return Ok(builtin_info(registry, type_name, signature));
+        }
+        let library = self.library(actor.user).await?;
+        library
+            .workflow
+            .definitions
+            .get(type_name)
+            .map(|definition| custom_info(type_name, definition, &library.workflow, registry))
+            .ok_or_else(|| ApiError::not_found(format!("there is no node named `{type_name}`")))
     }
 
     pub async fn get_node(&self, actor: &Actor, type_name: &str) -> Result<NodeRecord> {
@@ -160,7 +197,7 @@ impl Service {
             .map_err(internal)
     }
 
-    async fn library(&self, owner: Uuid) -> Result<Library> {
+    pub(crate) async fn library(&self, owner: Uuid) -> Result<Library> {
         let nodes = self.store().list_nodes(owner).await.map_err(internal)?;
         let mut workflow = Workflow::new("Node library");
         let mut stored = HashMap::with_capacity(nodes.len());
@@ -219,6 +256,53 @@ impl Service {
             })
         }
     }
+}
+
+fn builtin_info(registry: &Registry, type_name: &str, signature: &Signature) -> NodeInfo {
+    node_info(
+        type_name,
+        NodeKind::Builtin,
+        registry.description(type_name).map(str::to_owned),
+        registry.is_privileged(type_name),
+        signature,
+    )
+}
+
+fn custom_info(
+    type_name: &str,
+    definition: &Definition,
+    library: &Workflow,
+    registry: &Registry,
+) -> NodeInfo {
+    let privileged = reachable(type_name, library).iter().any(|definition| {
+        definition
+            .steps
+            .iter()
+            .any(|step| registry.is_privileged(&step.uses))
+    });
+    node_info(
+        type_name,
+        NodeKind::Custom,
+        definition.note.clone(),
+        privileged,
+        &Signature::of_definition(definition),
+    )
+}
+
+fn reachable<'a>(type_name: &'a str, library: &'a Workflow) -> Vec<&'a Definition> {
+    let mut seen = HashSet::new();
+    let mut pending = vec![type_name];
+    let mut found = Vec::new();
+    while let Some(name) = pending.pop() {
+        if !seen.insert(name) {
+            continue;
+        }
+        if let Some(definition) = library.definitions.get(name) {
+            pending.extend(definition.steps.iter().map(|step| step.uses.as_str()));
+            found.push(definition);
+        }
+    }
+    found
 }
 
 fn parse(stored: &StoredNode) -> Result<Definition> {

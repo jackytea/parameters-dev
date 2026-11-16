@@ -31,6 +31,8 @@ impl NodeError {
 pub trait Node: Send + Sync + 'static {
     fn signature(&self) -> Signature;
 
+    fn description(&self) -> &'static str;
+
     fn privileged(&self) -> bool {
         false
     }

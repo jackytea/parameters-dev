@@ -15,6 +15,10 @@ const BUDGET_PER_STEP: Duration = Duration::from_micros(50);
 struct Echo;
 
 impl Node for Echo {
+    fn description(&self) -> &'static str {
+        "Returns its input."
+    }
+
     fn signature(&self) -> Signature {
         Signature {
             inputs: vec![Port::optional("value", ValueType::Any)],

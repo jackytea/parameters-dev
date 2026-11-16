@@ -51,6 +51,7 @@ Dependencies only point toward `core`:
 - Nothing secret may leave the engine unmasked: reports, events, logs and errors all go through the run's redactor.
 - All SQL lives in `store`, written with the compile-time checked `sqlx::query!` macros. Migrations in `crates/store/migrations` are append-only: never edit one that has been committed.
 - Authorization and validation live in `service`. Server functions and MCP tools are thin adapters that pass an `Actor` and map `ApiError`; they never query the store directly.
+- MCP tools (`crates/mcp/src/tools.rs`) take their input schema from the struct that parses their arguments, report failures as tool errors (`isError`) so agents can correct themselves, and return run data through `output::run`, which clips it and labels it as untrusted.
 - Only a person in the app (`Via::Ui`) may approve a workflow that has privileged steps (`Node::privileged`); every changed version needs a new approval.
 - Local mode listens on loopback only and rejects requests whose `Host` or `Origin` is not localhost.
 - Conventional Commits with a scope, such as `feat(core): ...`. Types: `feat`, `fix`, `docs`, `chore`, `style`, `refactor`, `ci`, `test`, `revert`, `perf`. No AI attribution lines in commits or pull requests.

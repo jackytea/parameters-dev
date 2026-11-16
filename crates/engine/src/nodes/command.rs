@@ -13,6 +13,10 @@ const ERROR_OUTPUT_PREVIEW: usize = 2_000;
 pub(crate) struct ShellRun;
 
 impl Node for ShellRun {
+    fn description(&self) -> &'static str {
+        "Runs a command through the system shell (`sh -c`, or `cmd /C` on Windows) in the workspace or `directory`. Fails on a non-zero exit code. Prefer `process.run` when arguments come from inputs or other steps."
+    }
+
     fn privileged(&self) -> bool {
         true
     }
@@ -49,6 +53,10 @@ impl Node for ShellRun {
 pub(crate) struct ProcessRun;
 
 impl Node for ProcessRun {
+    fn description(&self) -> &'static str {
+        "Runs a program directly with a list of `arguments` and no shell, so values from inputs and other steps cannot inject commands. Fails on a non-zero exit code."
+    }
+
     fn privileged(&self) -> bool {
         true
     }

@@ -7,6 +7,10 @@ use crate::node::{BoxFuture, Inputs, Node, NodeContext, NodeError, Values};
 pub(crate) struct FileRead;
 
 impl Node for FileRead {
+    fn description(&self) -> &'static str {
+        "Reads a UTF-8 text file. Relative paths are resolved from the workspace."
+    }
+
     fn privileged(&self) -> bool {
         true
     }
@@ -47,6 +51,10 @@ impl Node for FileRead {
 pub(crate) struct FileWrite;
 
 impl Node for FileWrite {
+    fn description(&self) -> &'static str {
+        "Writes text to a file, creating parent directories and replacing the file if it exists. Relative paths are resolved from the workspace."
+    }
+
     fn privileged(&self) -> bool {
         true
     }
@@ -83,6 +91,10 @@ impl Node for FileWrite {
 pub(crate) struct FileList;
 
 impl Node for FileList {
+    fn description(&self) -> &'static str {
+        "Lists the entries in a directory, sorted by name. Relative paths are resolved from the workspace."
+    }
+
     fn privileged(&self) -> bool {
         true
     }

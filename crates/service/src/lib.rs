@@ -1,6 +1,7 @@
 mod cipher;
 mod config;
 mod hub;
+mod library;
 mod nodes;
 mod page;
 mod plans;

@@ -70,7 +70,8 @@ The JSON API lives under `/api`:
 | --- | --- |
 | `GET`, `POST /api/workflows` | List workflows, or create one from `{"source": {"format": "text" or "json", "content": "..."}}` |
 | `GET`, `PUT`, `DELETE /api/workflows/{id}` | Read, update (with the expected `version`) or delete a workflow |
-| `POST /api/check` | Validate a source without saving it |
+| `POST /api/check`, `POST /api/convert` | Validate a source without saving it, or convert it between text and JSON (`{"source": ..., "to": "text" or "json"}`) |
+| `GET /api/node-catalog`, `GET /api/node-catalog/{type}` | Every node a workflow can use, built-in and custom, with its inputs, outputs and an example |
 | `GET /api/workflows/{id}/review`, `POST .../approve` | Review the commands, files, hosts and secrets a workflow uses, and approve it |
 | `POST /api/workflows/{id}/runs` | Start a run with `{"inputs": {...}}` |
 | `GET /api/runs`, `GET /api/runs/{id}`, `POST /api/runs/{id}/cancel` | List, read and cancel runs |
@@ -78,6 +79,24 @@ The JSON API lives under `/api`:
 | `GET /api/secrets`, `PUT`, `DELETE /api/secrets/{name}` | List secret names, set a secret with `{"value": "..."}`, delete one. Values are never returned |
 | `GET /api/nodes`, `GET`, `PUT`, `DELETE /api/nodes/{type}`, `POST /api/nodes/{type}/rename`, `GET /api/nodes/{type}/users` | The custom node library |
 | `POST /api/node-imports/plan`, `POST /api/node-imports` | Preview and import custom nodes, renaming any that conflict |
+
+## AI agents (MCP)
+
+The server speaks the [Model Context Protocol](https://modelcontextprotocol.io) at `http://localhost:8080/mcp` (Streamable HTTP), so an AI agent can read the language reference, write workflows, run them and read the results. To add it to Claude Code, for example:
+
+```sh
+claude mcp add --transport http parameters http://localhost:8080/mcp
+```
+
+| Kind | Name | Purpose |
+| --- | --- | --- |
+| Resource | `parameters://reference/language` | The language reference |
+| Resource | `parameters://schema/workflow` | The JSON Schema of the workflow format |
+| Resource template | `parameters://nodes/{type}` | One node's description, inputs, outputs and example |
+| Tools (read) | `validate`, `convert`, `list_nodes`, `describe_node`, `list_workflows`, `get_workflow`, `get_run` | Check, convert and inspect |
+| Tools (change) | `create_workflow`, `update_workflow`, `run_workflow`, `cancel_run` | Save, run and stop workflows |
+
+Agents cannot delete workflows or approve them. A workflow that runs commands or uses files only runs after a person approves that exact version in the app, and `run_workflow` tells the agent what is waiting for approval. Changes an agent makes are recorded as made through MCP. Run results are returned as data, with long values shortened, and labelled so the agent does not treat them as instructions. Custom nodes from the library that a workflow uses are copied into it when it is saved.
 
 ## Repository layout
 

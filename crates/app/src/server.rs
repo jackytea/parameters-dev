@@ -11,6 +11,7 @@ use dioxus::server::http::uri::Authority;
 use dioxus::server::http::{StatusCode, header};
 use parameters_api::{ApiError, Via};
 use parameters_service::{Actor, Config, Service};
+use tokio_util::sync::CancellationToken;
 
 use crate::failure::Failure;
 
@@ -49,7 +50,12 @@ async fn serve() -> Result<(), String> {
         tracing::warn!("no client bundle next to the server, so only the API is served");
         axum::Router::new().serve_api_application(ServeConfig::new(), crate::App)
     };
+    let mcp = CancellationToken::new();
     let router = router
+        .nest_service(
+            "/mcp",
+            parameters_mcp::http_service(service.clone(), mcp.clone()),
+        )
         .layer(Extension(service))
         .layer(middleware::from_fn(local_only));
     let served = match tokio::net::TcpListener::bind(config.address).await {
@@ -62,6 +68,7 @@ async fn serve() -> Result<(), String> {
         }
         Err(error) => Err(format!("cannot listen on {}: {error}", config.address)),
     };
+    mcp.cancel();
     background.shutdown().await;
     served
 }

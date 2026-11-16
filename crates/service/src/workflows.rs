@@ -1,19 +1,30 @@
 use parameters_api::{
-    ApiError, Page, Problem, Review, Source, Via, WorkflowRecord, WorkflowSummary,
+    ApiError, Format, Page, Problem, Review, SavedWorkflow, Source, Via, WorkflowRecord,
+    WorkflowSummary,
 };
 use parameters_core::layout::complete_layouts;
-use parameters_core::{Workflow, from_json, to_json};
+use parameters_core::{MergeOutcome, Workflow, from_json, to_json, validate};
 use parameters_store::{Cursor, NewWorkflow, StoredWorkflow, Versioned, WorkflowUpdate, hex};
 use uuid::Uuid;
 
+use crate::library::{WithLibrary, include_library};
 use crate::page::PageRequest;
 use crate::review::inspect;
 use crate::{Actor, Result, Service, internal, source};
 
 impl Service {
-    #[must_use]
-    pub fn check(&self, source: &Source) -> Vec<Problem> {
-        source::check(source, self.registry()).1
+    pub async fn validate(&self, actor: &Actor, source: &Source) -> Result<Vec<Problem>> {
+        let library = self.library(actor.user).await?.workflow.definitions;
+        let declared = source::declared(source);
+        Ok(source::check(
+            source,
+            &WithLibrary::new(self.registry(), &library, &declared),
+        )
+        .1)
+    }
+
+    pub fn convert(&self, source: &Source, to: Format) -> Result<String> {
+        source::convert(source, to)
     }
 
     pub async fn list_workflows(
@@ -38,8 +49,13 @@ impl Service {
         record(self.stored_workflow(actor, id).await?)
     }
 
-    pub async fn create_workflow(&self, actor: &Actor, source: &Source) -> Result<WorkflowRecord> {
-        let (workflow, document, hash) = self.prepare(source)?;
+    pub async fn create_workflow(&self, actor: &Actor, source: &Source) -> Result<SavedWorkflow> {
+        let Prepared {
+            workflow,
+            document,
+            hash,
+            merged,
+        } = self.prepare(actor, source).await?;
         let summary = self
             .store()
             .insert_workflow(
@@ -53,11 +69,7 @@ impl Service {
             )
             .await
             .map_err(internal)?;
-        Ok(WorkflowRecord {
-            summary,
-            hash: hex(&hash),
-            document: workflow,
-        })
+        Ok(saved(summary, &hash, workflow, merged))
     }
 
     pub async fn update_workflow(
@@ -66,8 +78,13 @@ impl Service {
         id: Uuid,
         expected_version: i32,
         source: &Source,
-    ) -> Result<WorkflowRecord> {
-        let (workflow, document, hash) = self.prepare(source)?;
+    ) -> Result<SavedWorkflow> {
+        let Prepared {
+            workflow,
+            document,
+            hash,
+            merged,
+        } = self.prepare(actor, source).await?;
         let update = WorkflowUpdate {
             expected_version,
             workflow: NewWorkflow {
@@ -83,11 +100,7 @@ impl Service {
             .await
             .map_err(internal)?
         {
-            Versioned::Done(summary) => Ok(WorkflowRecord {
-                summary,
-                hash: hex(&hash),
-                document: workflow,
-            }),
+            Versioned::Done(summary) => Ok(saved(summary, &hash, workflow, merged)),
             Versioned::Conflict(current) => Err(ApiError::Conflict {
                 message: format!(
                     "the workflow was changed after version {expected_version}; it is now version {current}, so load it again and reapply the edit"
@@ -167,12 +180,57 @@ impl Service {
             .ok_or_else(|| not_found(id))
     }
 
-    fn prepare(&self, source: &Source) -> Result<(Workflow, String, [u8; 32])> {
-        let mut workflow = source::load(source, self.registry())?;
+    async fn prepare(&self, actor: &Actor, source: &Source) -> Result<Prepared> {
+        let library = self.library(actor.user).await?.workflow.definitions;
+        let declared = source::declared(source);
+        let mut workflow = source::load(
+            source,
+            &WithLibrary::new(self.registry(), &library, &declared),
+        )?;
+        let merged = include_library(&mut workflow, &library, self.registry())?;
+        if !merged.items.is_empty() {
+            let problems: Vec<Problem> = validate(&workflow, self.registry())
+                .iter()
+                .filter(|diagnostic| diagnostic.is_error())
+                .map(Problem::from)
+                .collect();
+            if !problems.is_empty() {
+                return Err(source::invalid(problems));
+            }
+        }
         complete_layouts(&mut workflow);
         let document = to_json(&workflow);
         let hash = *workflow.content_hash().as_bytes();
-        Ok((workflow, document, hash))
+        Ok(Prepared {
+            workflow,
+            document,
+            hash,
+            merged,
+        })
+    }
+}
+
+struct Prepared {
+    workflow: Workflow,
+    document: String,
+    hash: [u8; 32],
+    merged: MergeOutcome,
+}
+
+fn saved(
+    summary: WorkflowSummary,
+    hash: &[u8; 32],
+    document: Workflow,
+    merged: MergeOutcome,
+) -> SavedWorkflow {
+    SavedWorkflow {
+        record: WorkflowRecord {
+            summary,
+            hash: hex(hash),
+            document,
+        },
+        added_nodes: merged.items.into_iter().map(|item| item.name).collect(),
+        renamed_nodes: merged.renames,
     }
 }
 

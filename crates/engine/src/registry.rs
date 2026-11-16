@@ -44,6 +44,11 @@ impl Registry {
     }
 
     #[must_use]
+    pub fn description(&self, node_type: &str) -> Option<&'static str> {
+        self.nodes.get(node_type).map(|node| node.description())
+    }
+
+    #[must_use]
     pub fn is_privileged(&self, node_type: &str) -> bool {
         self.nodes
             .get(node_type)
@@ -88,6 +93,7 @@ mod tests {
         );
         for name in registry.node_types() {
             assert!(is_valid_node_type(name), "{name}");
+            assert!(!registry.description(name).unwrap().is_empty(), "{name}");
             let signature = registry.signature(name).unwrap();
             for ports in [&signature.inputs, &signature.outputs] {
                 let mut names: Vec<&str> = ports.iter().map(|port| port.name.as_str()).collect();
