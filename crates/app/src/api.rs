@@ -208,10 +208,15 @@ pub(crate) async fn me() -> Result<Me, Failure> {
 }
 
 #[post("/api/auth/email")]
-pub(crate) async fn request_sign_in(email: String) -> Result<(), Failure> {
+pub(crate) async fn request_sign_in(email: String, next: Option<String>) -> Result<(), Failure> {
     Ok(service()?
-        .request_email_sign_in(&email, &client_address())
+        .request_email_sign_in(&email, &client_address(), next.as_deref())
         .await?)
+}
+
+#[post("/api/devices/approve")]
+pub(crate) async fn approve_device(code: String) -> Result<String, Failure> {
+    Ok(service()?.approve_device(&actor()?, &code).await?)
 }
 
 #[get("/api/tokens")]

@@ -756,3 +756,9 @@ label.chip {
 .triggers .row-actions {
   text-align: left;
 }
+
+.device-code {
+  font-size: 28px;
+  letter-spacing: 0.15em;
+  text-align: center;
+}

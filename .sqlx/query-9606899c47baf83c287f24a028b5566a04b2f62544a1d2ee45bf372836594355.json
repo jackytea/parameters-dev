@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO login_tokens (token_hash, email, expires_at, next)\n               VALUES ($1, $2, now() + make_interval(secs => $3), $4)",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Text",
+        "Float8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "9606899c47baf83c287f24a028b5566a04b2f62544a1d2ee45bf372836594355"
+}

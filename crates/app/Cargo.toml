@@ -22,12 +22,15 @@ parameters-mcp = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true, features = ["net", "signal"] }
 tokio-util = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
+dirs = { workspace = true, optional = true }
+webbrowser = { workspace = true, optional = true }
 
 [features]
 default = []
 web = ["dioxus/web"]
-desktop = ["dioxus/desktop"]
-mobile = ["dioxus/mobile"]
+desktop = ["dioxus/desktop", "native"]
+mobile = ["dioxus/mobile", "native"]
+native = ["dep:dirs", "dep:webbrowser", "dep:tokio"]
 server = [
     "dioxus/server",
     "dep:parameters-service",

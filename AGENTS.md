@@ -13,6 +13,7 @@ Parameters is a graph-based, English-like workflow automation language written i
 - `cargo test --workspace --features parameters-app/server` — run all tests, including server-only code; the database tests need `DATABASE_URL` pointing at a PostgreSQL server where the user can create databases (each test gets its own)
 - `cargo clippy --workspace --all-targets --features parameters-app/server -- -D warnings` — lint
 - `cargo clippy -p parameters-app --target wasm32-unknown-unknown --features web -- -D warnings` — lint the web build
+- `cargo clippy -p parameters-app --features desktop -- -D warnings` (and `--features mobile`) — lint the native builds; on Linux this needs the WebKitGTK headers listed in `.github/workflows/ci.yaml`
 - `cargo fmt --all` — format
 - `UPDATE_GOLDEN=1 cargo test -p parameters-core -p parameters-lang` — regenerate golden files (test fixtures, `schema/workflow.v1.json`, `docs/language.md`); review the diff before committing
 - `cargo bench -p parameters-lang` — parser benchmark; fails if parsing and validating 1,000 steps takes over 5 ms
@@ -60,5 +61,7 @@ Dependencies only point toward `core`:
 - Tokens, sessions and sign-in links are random 32-byte values; only their SHA-256 hashes are stored.
 - Conventional Commits with a scope, such as `feat(core): ...`. Types: `feat`, `fix`, `docs`, `chore`, `style`, `refactor`, `ci`, `test`, `revert`, `perf`. No AI attribution lines in commits or pull requests.
 - UI: square edges (no border radius), theme tokens in CSS custom properties, light and dark modes.
+- Native-only code (`crates/app/src/native.rs`, `ui::device::native`) is gated by the `desktop` and `mobile` features; native builds talk to the server with a bearer session from the device sign-in (`/auth/device`), never with cookies.
+- Releases come only from the tag-triggered release workflow; pin every action to a commit SHA, and keep signing optional behind repository secrets.
 - UI data loads on the client only (`on_client()` in `crates/app/src/ui/common.rs`), so the server-rendered page and the first client render match. Live views use the server-sent event endpoints and reconnect after a pause.
 - The editor keeps one `EditorState` (`crates/app/src/ui/editor/mod.rs`). Graph and inspector edits go through `parameters_core::edit` and reprint the text; text edits replace the workflow when they parse. Keep editing rules in `core::edit`, where they are tested.

@@ -1,0 +1,9 @@
+[application]
+name = "Parameters"
+
+[bundle]
+identifier = "dev.parameters.app"
+publisher = "Parameters"
+short_description = "Graph-based workflow automation"
+copyright = "AGPL-3.0-only"
+category = "DeveloperTool"

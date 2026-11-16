@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE device_codes SET approved_by = $2\n               WHERE user_code = $1 AND approved_by IS NULL AND consumed_at IS NULL\n                 AND expires_at > now()\n               RETURNING name",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "device_codes",
+            "name": "name"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "2e60a85866a14d01a2f0ce29afa345baa6a1b4c6f2201d24c6dfefce5539c906"
+}

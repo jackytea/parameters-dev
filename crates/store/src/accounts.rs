@@ -107,28 +107,100 @@ impl Store {
         Ok(user)
     }
 
-    pub async fn add_login_token(&self, hash: &[u8; 32], email: &str, ttl: Duration) -> Result<()> {
+    pub async fn add_login_token(
+        &self,
+        hash: &[u8; 32],
+        email: &str,
+        ttl: Duration,
+        next: Option<&str>,
+    ) -> Result<()> {
         sqlx::query!(
-            r#"INSERT INTO login_tokens (token_hash, email, expires_at)
-               VALUES ($1, $2, now() + make_interval(secs => $3))"#,
+            r#"INSERT INTO login_tokens (token_hash, email, expires_at, next)
+               VALUES ($1, $2, now() + make_interval(secs => $3), $4)"#,
             hash.as_slice(),
             email,
-            seconds(ttl)
+            seconds(ttl),
+            next
         )
         .execute(&self.pool)
         .await?;
         Ok(())
     }
 
-    pub async fn consume_login_token(&self, hash: &[u8; 32]) -> Result<Option<String>> {
-        Ok(sqlx::query_scalar!(
+    pub async fn consume_login_token(
+        &self,
+        hash: &[u8; 32],
+    ) -> Result<Option<(String, Option<String>)>> {
+        Ok(sqlx::query!(
             r#"UPDATE login_tokens SET consumed_at = now()
                WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > now()
-               RETURNING email"#,
+               RETURNING email, next"#,
             hash.as_slice()
         )
         .fetch_optional(&self.pool)
+        .await?
+        .map(|row| (row.email, row.next)))
+    }
+
+    pub async fn add_device_code(
+        &self,
+        hash: &[u8; 32],
+        user_code: &str,
+        name: &str,
+        ttl: Duration,
+    ) -> Result<bool> {
+        Ok(sqlx::query!(
+            r#"INSERT INTO device_codes (device_hash, user_code, name, expires_at)
+               VALUES ($1, $2, $3, now() + make_interval(secs => $4))
+               ON CONFLICT (user_code) DO NOTHING"#,
+            hash.as_slice(),
+            user_code,
+            name,
+            seconds(ttl)
+        )
+        .execute(&self.pool)
+        .await?
+        .rows_affected()
+            > 0)
+    }
+
+    pub async fn approve_device_code(&self, user_code: &str, user: Uuid) -> Result<Option<String>> {
+        Ok(sqlx::query_scalar!(
+            r#"UPDATE device_codes SET approved_by = $2
+               WHERE user_code = $1 AND approved_by IS NULL AND consumed_at IS NULL
+                 AND expires_at > now()
+               RETURNING name"#,
+            user_code,
+            user
+        )
+        .fetch_optional(&self.pool)
         .await?)
+    }
+
+    pub async fn claim_device_code(&self, hash: &[u8; 32]) -> Result<Option<Option<Uuid>>> {
+        let mut transaction = self.pool.begin().await?;
+        let approved = sqlx::query_scalar!(
+            r#"UPDATE device_codes SET consumed_at = now()
+               WHERE device_hash = $1 AND approved_by IS NOT NULL AND consumed_at IS NULL
+                 AND expires_at > now()
+               RETURNING approved_by AS "approved_by!""#,
+            hash.as_slice()
+        )
+        .fetch_optional(&mut *transaction)
+        .await?;
+        let state = match approved {
+            Some(user) => Some(Some(user)),
+            None => sqlx::query_scalar!(
+                r#"SELECT 1 AS "pending!" FROM device_codes
+                   WHERE device_hash = $1 AND consumed_at IS NULL AND expires_at > now()"#,
+                hash.as_slice()
+            )
+            .fetch_optional(&mut *transaction)
+            .await?
+            .map(|_| None),
+        };
+        transaction.commit().await?;
+        Ok(state)
     }
 
     pub async fn add_session(&self, hash: &[u8; 32], user: Uuid, ttl: Duration) -> Result<()> {
@@ -254,10 +326,15 @@ impl Store {
                 .execute(&self.pool)
                 .await?
                 .rows_affected();
+        let devices =
+            sqlx::query!("DELETE FROM device_codes WHERE expires_at < now() - interval '1 day'")
+                .execute(&self.pool)
+                .await?
+                .rows_affected();
         let sessions = sqlx::query!("DELETE FROM sessions WHERE expires_at < now()")
             .execute(&self.pool)
             .await?
             .rows_affected();
-        Ok(logins + sessions)
+        Ok(logins + sessions + devices)
     }
 }

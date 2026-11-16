@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE device_codes SET consumed_at = now()\n               WHERE device_hash = $1 AND approved_by IS NOT NULL AND consumed_at IS NULL\n                 AND expires_at > now()\n               RETURNING approved_by AS \"approved_by!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "approved_by!",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "device_codes",
+            "name": "approved_by"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "b2d64819e607af6308cca33d9d09218386521a95017b8c530599a88c80c29302"
+}

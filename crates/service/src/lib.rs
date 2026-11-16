@@ -27,7 +27,7 @@ use parameters_engine::{Engine, EngineError, Registry};
 use parameters_store::{Store, StoreError};
 use uuid::Uuid;
 
-pub use accounts::{OAuthStart, TOKEN_PREFIX};
+pub use accounts::{OAuthStart, SignedIn, TOKEN_PREFIX, safe_next};
 pub use cipher::{EncryptionKey, KeyError};
 pub use config::{Config, ConfigError, ManagedConfig, ModeConfig};
 pub use mail::{Mail, MailFuture, Mailer, MemoryMailer, SmtpMailer};

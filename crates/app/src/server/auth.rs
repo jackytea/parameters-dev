@@ -1,17 +1,19 @@
+use std::fmt::Write;
 use std::net::SocketAddr;
 
 use dioxus::server::axum::extract::{ConnectInfo, Path, Request, State};
 use dioxus::server::axum::middleware::Next;
 use dioxus::server::axum::response::{AppendHeaders, Html, IntoResponse, Response};
 use dioxus::server::axum::routing::{get, post};
-use dioxus::server::axum::{Form, Router};
+use dioxus::server::axum::{Extension, Form, Json, Router};
 use dioxus::server::http::header::{
     AUTHORIZATION, COOKIE, LOCATION, ORIGIN, SET_COOKIE, WWW_AUTHENTICATE,
 };
 use dioxus::server::http::{HeaderMap, Method, StatusCode};
 use parameters_api::{ApiError, Via};
-use parameters_service::{Actor, Service};
+use parameters_service::{Actor, Service, TOKEN_PREFIX, safe_next};
 use serde::Deserialize;
+use serde_json::json;
 
 const SESSION_COOKIE: &str = "__Host-parameters";
 const PLAIN_SESSION_COOKIE: &str = "parameters_session";
@@ -108,9 +110,15 @@ pub(crate) async fn authenticate(
     let actor = if !service.is_managed() {
         Some(Actor::local(if mcp { Via::Mcp } else { Via::Ui }))
     } else if let Some(token) = bearer(request.headers()) {
-        service
-            .token_actor(token, if mcp { Via::Mcp } else { Via::Api })
-            .await
+        if token.starts_with(TOKEN_PREFIX) {
+            service
+                .token_actor(token, if mcp { Via::Mcp } else { Via::Api })
+                .await
+        } else if mcp {
+            None
+        } else {
+            service.session_actor(token).await
+        }
     } else if mcp {
         None
     } else if let Some(token) = cookie(request.headers(), session_cookie(&service)) {
@@ -158,6 +166,8 @@ pub(crate) fn routes(service: Service) -> Router {
     Router::new()
         .route("/auth/email", get(confirm_email).post(finish_email))
         .route("/auth/signout", post(sign_out))
+        .route("/auth/device", post(start_device))
+        .route("/auth/device/token", post(claim_device))
         .route("/auth/{provider}", get(start_oauth))
         .route("/auth/{provider}/callback", get(finish_oauth))
         .with_state(service)
@@ -200,7 +210,23 @@ fn problem(error: &ApiError) -> Response {
         .into_response()
 }
 
-fn signed_in(service: &Service, session: &str, extra: Option<String>) -> Response {
+fn hex(text: &str) -> String {
+    text.bytes()
+        .fold(String::with_capacity(text.len() * 2), |mut out, byte| {
+            let _ = write!(out, "{byte:02x}");
+            out
+        })
+}
+
+fn unhex(text: &str) -> Option<String> {
+    let bytes = (0..text.len())
+        .step_by(2)
+        .map(|index| u8::from_str_radix(text.get(index..index + 2)?, 16).ok())
+        .collect::<Option<Vec<u8>>>()?;
+    String::from_utf8(bytes).ok()
+}
+
+fn signed_in(service: &Service, session: &str, next: &str, extra: Option<String>) -> Response {
     let mut cookies = vec![(
         SET_COOKIE,
         set_cookie(
@@ -214,7 +240,7 @@ fn signed_in(service: &Service, session: &str, extra: Option<String>) -> Respons
     cookies.extend(extra.map(|cookie| (SET_COOKIE, cookie)));
     (
         StatusCode::SEE_OTHER,
-        [(LOCATION, "/")],
+        [(LOCATION, next.to_owned())],
         AppendHeaders(cookies),
     )
         .into_response()
@@ -237,15 +263,30 @@ async fn confirm_email(Form(form): Form<TokenForm>) -> Html<String> {
 
 async fn finish_email(State(service): State<Service>, Form(form): Form<TokenForm>) -> Response {
     match service.finish_email_sign_in(&form.token).await {
-        Ok(session) => signed_in(&service, &session, None),
+        Ok(signed) => signed_in(&service, &signed.session, &signed.next, None),
         Err(error) => problem(&error),
     }
 }
 
-async fn start_oauth(State(service): State<Service>, Path(provider): Path<String>) -> Response {
+#[derive(Deserialize)]
+struct NextForm {
+    next: Option<String>,
+}
+
+async fn start_oauth(
+    State(service): State<Service>,
+    Path(provider): Path<String>,
+    Form(form): Form<NextForm>,
+) -> Response {
     match service.start_oauth(&provider) {
         Ok(start) => {
-            let value = format!("{provider}.{}.{}", start.state, start.verifier);
+            let next = safe_next(form.next.as_deref()).unwrap_or_else(|| "/".into());
+            let value = format!(
+                "{provider}.{}.{}.{}",
+                start.state,
+                start.verifier,
+                hex(&next)
+            );
             (
                 StatusCode::SEE_OTHER,
                 [
@@ -284,10 +325,10 @@ async fn finish_oauth(
         return refused("the sign-in was cancelled");
     }
     let expected = cookie(&headers, OAUTH_COOKIE).and_then(|value| {
-        let mut parts = value.splitn(3, '.');
-        Some((parts.next()?, parts.next()?, parts.next()?))
+        let mut parts = value.splitn(4, '.');
+        Some((parts.next()?, parts.next()?, parts.next()?, parts.next()?))
     });
-    let (Some((cookie_provider, state, verifier)), Some(code), Some(returned)) = (
+    let (Some((cookie_provider, state, verifier, next)), Some(code), Some(returned)) = (
         expected,
         callback.code.as_deref(),
         callback.state.as_deref(),
@@ -299,14 +340,19 @@ async fn finish_oauth(
     }
     let clear = set_cookie(&service, OAUTH_COOKIE, "", "/auth", 0);
     match service.finish_oauth(&provider, code, verifier).await {
-        Ok(session) => signed_in(&service, &session, Some(clear)),
+        Ok(session) => {
+            let next = safe_next(unhex(next).as_deref()).unwrap_or_else(|| "/".into());
+            signed_in(&service, &session, &next, Some(clear))
+        }
         Err(error) => problem(&error),
     }
 }
 
 async fn sign_out(State(service): State<Service>, headers: HeaderMap) -> Response {
     let name = session_cookie(&service);
-    if let Some(token) = cookie(&headers, name) {
+    let token = cookie(&headers, name)
+        .or_else(|| bearer(&headers).filter(|token| !token.starts_with(TOKEN_PREFIX)));
+    if let Some(token) = token {
         let _ = service.sign_out(token).await;
     }
     (
@@ -317,6 +363,44 @@ async fn sign_out(State(service): State<Service>, headers: HeaderMap) -> Respons
         ],
     )
         .into_response()
+}
+
+#[derive(Deserialize)]
+struct DeviceRequest {
+    #[serde(default)]
+    name: String,
+}
+
+#[derive(Deserialize)]
+struct DeviceClaim {
+    device_code: String,
+}
+
+fn failure(error: &ApiError) -> Response {
+    (
+        StatusCode::from_u16(error.status()).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+        Json(error),
+    )
+        .into_response()
+}
+
+async fn start_device(
+    State(service): State<Service>,
+    Extension(address): Extension<ClientAddress>,
+    Json(request): Json<DeviceRequest>,
+) -> Response {
+    match service.start_device(&request.name, &address.0).await {
+        Ok(start) => Json(start).into_response(),
+        Err(error) => failure(&error),
+    }
+}
+
+async fn claim_device(State(service): State<Service>, Json(claim): Json<DeviceClaim>) -> Response {
+    match service.claim_device(&claim.device_code).await {
+        Ok(Some(token)) => Json(json!({ "token": token })).into_response(),
+        Ok(None) => (StatusCode::ACCEPTED, Json(json!({ "pending": true }))).into_response(),
+        Err(error) => failure(&error),
+    }
 }
 
 #[cfg(test)]
@@ -340,5 +424,10 @@ mod tests {
             escape("<a href=\"x\">&'"),
             "&lt;a href=&quot;x&quot;&gt;&amp;&#39;"
         );
+        assert_eq!(
+            unhex(&hex("/connect?code=AB-CD")).as_deref(),
+            Some("/connect?code=AB-CD")
+        );
+        assert_eq!(unhex("zz"), None);
     }
 }

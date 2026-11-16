@@ -70,7 +70,11 @@ fn not_found<T: std::fmt::Debug>(result: &Result<T, ApiError>) {
 async fn magic_links_sign_in_once_and_are_rate_limited(pool: PgPool) {
     let (service, mailer) = managed(&pool).await;
     service
-        .request_email_sign_in("  Ada@Example.COM ", "203.0.113.5")
+        .request_email_sign_in(
+            "  Ada@Example.COM ",
+            "203.0.113.5",
+            Some("/connect?code=ABCD-EFGH"),
+        )
         .await
         .unwrap();
     let mail = mailer.sent().pop().unwrap();
@@ -86,7 +90,9 @@ async fn magic_links_sign_in_once_and_are_rate_limited(pool: PgPool) {
         mail.text
             .contains("https://parameters.test/auth/email?token=")
     );
-    let session = service.finish_email_sign_in(&token).await.unwrap();
+    let signed_in = service.finish_email_sign_in(&token).await.unwrap();
+    assert_eq!(signed_in.next, "/connect?code=ABCD-EFGH");
+    let session = signed_in.session;
     let actor = service.session_actor(&session).await.unwrap();
     assert_eq!(actor.via, Via::Ui);
     let me = service.me(Some(&actor)).await.unwrap();
@@ -104,19 +110,19 @@ async fn magic_links_sign_in_once_and_are_rate_limited(pool: PgPool) {
     assert!(service.session_actor("made-up").await.is_none());
     for _ in 0..4 {
         service
-            .request_email_sign_in("ada@example.com", "203.0.113.5")
+            .request_email_sign_in("ada@example.com", "203.0.113.5", None)
             .await
             .unwrap();
     }
     assert!(matches!(
         service
-            .request_email_sign_in("ada@example.com", "203.0.113.6")
+            .request_email_sign_in("ada@example.com", "203.0.113.6", None)
             .await,
         Err(ApiError::TooManyRequests { .. })
     ));
     assert!(matches!(
         service
-            .request_email_sign_in("not an email", "203.0.113.5")
+            .request_email_sign_in("not an email", "203.0.113.5", None)
             .await,
         Err(ApiError::BadRequest { .. })
     ));
@@ -126,7 +132,7 @@ async fn magic_links_sign_in_once_and_are_rate_limited(pool: PgPool) {
 async fn identities_join_accounts_only_through_verified_emails(pool: PgPool) {
     let (service, mailer) = managed(&pool).await;
     service
-        .request_email_sign_in("ada@example.com", "198.51.100.1")
+        .request_email_sign_in("ada@example.com", "198.51.100.1", None)
         .await
         .unwrap();
     let token = mailer.sent()[0]
@@ -137,7 +143,7 @@ async fn identities_join_accounts_only_through_verified_emails(pool: PgPool) {
         .unwrap()
         .to_owned();
     let by_email = service
-        .session_actor(&service.finish_email_sign_in(&token).await.unwrap())
+        .session_actor(&service.finish_email_sign_in(&token).await.unwrap().session)
         .await
         .unwrap();
     let verified = service
@@ -349,4 +355,69 @@ async fn the_managed_sandbox_and_quotas_apply(pool: PgPool) {
             .await,
         Err(ApiError::TooManyRequests { .. })
     ));
+}
+
+#[sqlx::test(migrations = "../store/migrations")]
+async fn devices_connect_once_a_person_approves_their_code(pool: PgPool) {
+    let (service, _) = managed(&pool).await;
+    let ada = person(&service, "ada").await;
+    let start = service.start_device("Laptop", "192.0.2.1").await.unwrap();
+    assert_eq!(start.user_code.len(), 9);
+    assert!(
+        start
+            .verification_uri
+            .starts_with("https://parameters.test/connect?code=")
+    );
+    assert_eq!(
+        service.claim_device(&start.device_code).await.unwrap(),
+        None
+    );
+    let token = service
+        .create_token(&ada, "agent", Scopes::ALL, None)
+        .await
+        .unwrap()
+        .token;
+    let agent = service.token_actor(&token, Via::Api).await.unwrap();
+    assert!(matches!(
+        service.approve_device(&agent, &start.user_code).await,
+        Err(ApiError::Forbidden { .. })
+    ));
+    assert!(matches!(
+        service.approve_device(&ada, "ZZZZ-ZZZZ").await,
+        Err(ApiError::NotFound { .. })
+    ));
+    let typed = start.user_code.to_lowercase().replace('-', " ");
+    assert_eq!(
+        service.approve_device(&ada, &typed).await.unwrap(),
+        "Laptop"
+    );
+    let session = service
+        .claim_device(&start.device_code)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        service.session_actor(&session).await.unwrap().user,
+        ada.user
+    );
+    assert!(matches!(
+        service.claim_device(&start.device_code).await,
+        Err(ApiError::Unauthorized { .. })
+    ));
+    assert!(matches!(
+        service.claim_device("made-up").await,
+        Err(ApiError::Unauthorized { .. })
+    ));
+    for next in [
+        "https://evil.example",
+        "//evil.example",
+        "/\\evil",
+        "relative",
+    ] {
+        assert_eq!(parameters_service::safe_next(Some(next)), None, "{next}");
+    }
+    assert_eq!(
+        parameters_service::safe_next(Some("/runs")).as_deref(),
+        Some("/runs")
+    );
 }

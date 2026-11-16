@@ -10,7 +10,7 @@ mod secret;
 mod trigger;
 mod workflow;
 
-pub use account::{CreatedToken, Me, Mode, Scope, Scopes, TokenSummary, UserInfo};
+pub use account::{CreatedToken, DeviceStart, Me, Mode, Scope, Scopes, TokenSummary, UserInfo};
 pub use error::ApiError;
 pub use node::{
     ImportItem, ImportStatus, NodeInfo, NodeKind, NodeRecord, NodeSummary, PortInfo, Resolution,

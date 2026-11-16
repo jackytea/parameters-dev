@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use parameters_api::{
-    ApiError, CreatedToken, Me, Mode, Scope, Scopes, TokenSummary, UserInfo, Uuid, Via,
+    ApiError, CreatedToken, DeviceStart, Me, Mode, Scope, Scopes, TokenSummary, UserInfo, Uuid, Via,
 };
 use parameters_store::NewToken;
 use ring::digest::{SHA256, digest};
@@ -20,6 +20,36 @@ const LIMIT_PERIOD: Duration = Duration::from_hours(1);
 const MAX_EMAIL: usize = 254;
 const MAX_TOKEN_NAME: usize = 100;
 const MAX_TOKEN_DAYS: u32 = 365;
+
+const DEVICE_TTL: Duration = Duration::from_mins(10);
+const DEVICE_INTERVAL: u64 = 2;
+const DEVICE_LIMIT: u32 = 10;
+const DEVICE_ALPHABET: &[u8; 20] = b"BCDFGHJKLMNPQRSTVWXZ";
+const MAX_NEXT: usize = 512;
+
+pub struct SignedIn {
+    pub session: String,
+    pub next: String,
+}
+
+#[must_use]
+pub fn safe_next(next: Option<&str>) -> Option<String> {
+    next.filter(|path| {
+        path.len() <= MAX_NEXT
+            && path.starts_with('/')
+            && !path.starts_with("//")
+            && !path.contains('\\')
+            && !path.chars().any(char::is_control)
+    })
+    .map(str::to_owned)
+}
+
+fn normalize_user_code(code: &str) -> String {
+    code.chars()
+        .filter(char::is_ascii_alphabetic)
+        .map(|character| character.to_ascii_uppercase())
+        .collect()
+}
 
 pub struct OAuthStart {
     pub url: String,
@@ -93,7 +123,12 @@ impl Service {
         Ok(token)
     }
 
-    pub async fn request_email_sign_in(&self, email: &str, client: &str) -> Result<()> {
+    pub async fn request_email_sign_in(
+        &self,
+        email: &str,
+        client: &str,
+        next: Option<&str>,
+    ) -> Result<()> {
         let managed = self.managed()?;
         let email = normalize_email(email)?;
         let limiter = &self.inner.limiter;
@@ -114,7 +149,7 @@ impl Service {
             .ok_or_else(|| ApiError::bad_request("email sign-in is not set up on this server"))?;
         let token = self.random_token()?;
         self.store()
-            .add_login_token(&hash(&token), &email, LOGIN_TTL)
+            .add_login_token(&hash(&token), &email, LOGIN_TTL, safe_next(next).as_deref())
             .await
             .map_err(internal)?;
         let link = format!("{}/auth/email?token={token}", managed.public_url);
@@ -130,9 +165,9 @@ impl Service {
             .map_err(internal)
     }
 
-    pub async fn finish_email_sign_in(&self, token: &str) -> Result<String> {
+    pub async fn finish_email_sign_in(&self, token: &str) -> Result<SignedIn> {
         self.managed()?;
-        let email = self
+        let (email, next) = self
             .store()
             .consume_login_token(&hash(token))
             .await
@@ -146,7 +181,82 @@ impl Service {
             .user_for_email(&email)
             .await
             .map_err(internal)?;
-        self.new_session(user).await
+        Ok(SignedIn {
+            session: self.new_session(user).await?,
+            next: safe_next(next.as_deref()).unwrap_or_else(|| "/".into()),
+        })
+    }
+
+    pub async fn start_device(&self, name: &str, client: &str) -> Result<DeviceStart> {
+        let managed = self.managed()?;
+        if !self
+            .inner
+            .limiter
+            .allow(&format!("device-from:{client}"), DEVICE_LIMIT, LIMIT_PERIOD)
+        {
+            return Err(ApiError::TooManyRequests {
+                message: "too many sign-in attempts from this address; wait a while".into(),
+            });
+        }
+        let name: String = name.trim().chars().take(MAX_TOKEN_NAME).collect();
+        let name = if name.is_empty() {
+            "Parameters app".to_owned()
+        } else {
+            name
+        };
+        let device_code = self.random_token()?;
+        loop {
+            let bytes = self.inner.cipher.random_bytes().map_err(internal)?;
+            let user_code: String = bytes[..8]
+                .iter()
+                .map(|byte| char::from(DEVICE_ALPHABET[usize::from(*byte) % DEVICE_ALPHABET.len()]))
+                .collect();
+            if self
+                .store()
+                .add_device_code(&hash(&device_code), &user_code, &name, DEVICE_TTL)
+                .await
+                .map_err(internal)?
+            {
+                let shown = format!("{}-{}", &user_code[..4], &user_code[4..]);
+                return Ok(DeviceStart {
+                    verification_uri: format!("{}/connect?code={shown}", managed.public_url),
+                    device_code,
+                    user_code: shown,
+                    expires_in: DEVICE_TTL.as_secs(),
+                    interval: DEVICE_INTERVAL,
+                });
+            }
+        }
+    }
+
+    pub async fn approve_device(&self, actor: &Actor, code: &str) -> Result<String> {
+        if actor.via != Via::Ui {
+            return Err(ApiError::forbidden(
+                "devices can only be connected in the Parameters app",
+            ));
+        }
+        self.store()
+            .approve_device_code(&normalize_user_code(code), actor.user)
+            .await
+            .map_err(internal)?
+            .ok_or_else(|| {
+                ApiError::not_found("that code is unknown or expired; start again in the app")
+            })
+    }
+
+    pub async fn claim_device(&self, device_code: &str) -> Result<Option<String>> {
+        match self
+            .store()
+            .claim_device_code(&hash(device_code))
+            .await
+            .map_err(internal)?
+        {
+            Some(Some(user)) => Ok(Some(self.new_session(user).await?)),
+            Some(None) => Ok(None),
+            None => Err(ApiError::Unauthorized {
+                message: "this sign-in expired; start again".into(),
+            }),
+        }
     }
 
     pub fn start_oauth(&self, provider: &str) -> Result<OAuthStart> {

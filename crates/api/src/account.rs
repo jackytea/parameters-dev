@@ -124,6 +124,15 @@ pub struct CreatedToken {
     pub token: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeviceStart {
+    pub device_code: String,
+    pub user_code: String,
+    pub verification_uri: String,
+    pub expires_in: u64,
+    pub interval: u64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

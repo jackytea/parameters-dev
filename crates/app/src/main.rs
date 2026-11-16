@@ -1,6 +1,8 @@
 mod api;
 mod catalog;
 mod failure;
+#[cfg(any(feature = "desktop", feature = "mobile"))]
+mod native;
 #[cfg(feature = "server")]
 mod server;
 mod ui;
@@ -9,6 +11,7 @@ use dioxus::prelude::*;
 use parameters_api::Uuid;
 
 use crate::ui::account::{Account, SignIn};
+use crate::ui::device::Connect;
 use crate::ui::editor::Editor;
 use crate::ui::nodes::Nodes;
 use crate::ui::runs::{RunPage, Runs};
@@ -25,6 +28,8 @@ fn main() -> std::process::ExitCode {
 
 #[cfg(not(feature = "server"))]
 fn main() {
+    #[cfg(any(feature = "desktop", feature = "mobile"))]
+    native::configure();
     dioxus::launch(App);
 }
 
@@ -48,6 +53,8 @@ enum Route {
         SignIn {},
         #[route("/account")]
         Account {},
+        #[route("/connect?:code")]
+        Connect { code: String },
         #[route("/:..segments")]
         NotFound { segments: Vec<String> },
 }

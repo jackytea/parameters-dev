@@ -1,0 +1,37 @@
+name: Install the Dioxus CLI
+description: Downloads a released dx binary and checks it against the published SHA-256 sum
+
+inputs:
+  version:
+    description: dx version
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        DX_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        case "$RUNNER_OS-$RUNNER_ARCH" in
+          Linux-X64) target=x86_64-unknown-linux-gnu; archive=tar.gz ;;
+          Linux-ARM64) target=aarch64-unknown-linux-gnu; archive=tar.gz ;;
+          macOS-ARM64) target=aarch64-apple-darwin; archive=tar.gz ;;
+          macOS-X64) target=x86_64-apple-darwin; archive=tar.gz ;;
+          Windows-X64) target=x86_64-pc-windows-msvc; archive=zip ;;
+          *) echo "::error::no dx build for $RUNNER_OS $RUNNER_ARCH"; exit 1 ;;
+        esac
+        base="https://github.com/DioxusLabs/dioxus/releases/download/v${DX_VERSION}"
+        work="$(mktemp -d)"
+        cd "$work"
+        curl -sSfLO "$base/dx-$target.$archive"
+        curl -sSfLO "$base/dx-$target.sha256"
+        if ! grep -qi "$(sha256sum "dx-$target.$archive" | cut -d ' ' -f 1)" "dx-$target.sha256"; then
+          echo "::error::the dx download does not match its published checksum"
+          exit 1
+        fi
+        if [ "$archive" = zip ]; then unzip -q "dx-$target.zip"; else tar -xzf "dx-$target.tar.gz"; fi
+        mkdir -p "$HOME/.cargo/bin"
+        if [ -f dx.exe ]; then cp dx.exe "$HOME/.cargo/bin/"; else cp dx "$HOME/.cargo/bin/"; fi
+        "$HOME/.cargo/bin/dx" --version

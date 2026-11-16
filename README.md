@@ -152,6 +152,44 @@ In managed mode, connect with an access token from the Account page: `claude mcp
 
 Agents cannot delete workflows or approve them. A workflow that runs commands or uses files only runs after a person approves that exact version in the app, and `run_workflow` tells the agent what is waiting for approval. Changes an agent makes are recorded as made through MCP. Run results are returned as data, with long values shortened, and labelled so the agent does not treat them as instructions. Custom nodes from the library that a workflow uses are copied into it when it is saved.
 
+## Desktop and mobile apps
+
+The desktop apps (Windows, macOS, Linux) and the mobile apps (iOS, Android) are the same interface, running natively. They connect to a Parameters server: parameters.dev by default, or any server you choose on desktop (for example `http://localhost:8080` for the server on your computer). Builds can change the default with the `PARAMETERS_SERVER_URL` environment variable at build time.
+
+On a server with accounts, the app asks you to sign in with your browser:
+
+1. The app shows a short code and opens `/connect?code=…` in your browser.
+2. Sign in there if you are not already, check that the code matches, and choose Allow.
+3. The app picks up its session by itself.
+
+The session is stored in a file in the app's own data folder that only your user account can read, and signing out in the app ends it.
+
+```sh
+dx serve --package parameters-app --platform desktop
+dx bundle --package parameters-app --platform desktop --release
+```
+
+## Releases
+
+Pushing a tag such as `v0.1.0` runs [the release workflow](.github/workflows/release.yaml). It builds and publishes:
+
+- the `parameters` command line tool for Linux (x86-64 and ARM), macOS (Apple silicon) and Windows;
+- the desktop app for Linux (`.deb`, `.rpm`, `.AppImage`), macOS and Windows;
+- the Android app (`.apk`) and an iOS build;
+- the server image, `ghcr.io/<owner>/<repository>`, with an SBOM.
+
+Every file in a release is listed in `SHA256SUMS`. Each file also has a signed build-provenance attestation, made with GitHub's Sigstore-based attestations and needing no stored keys. Check a download with `gh attestation verify <file> --repo <owner>/<repository>`, and the image with `gh attestation verify oci://ghcr.io/<owner>/<repository>:<version> --repo <owner>/<repository>`.
+
+Platform code signing runs when its repository secrets are set:
+
+| Platform | Secrets |
+| --- | --- |
+| macOS (signing and notarization) | `APPLE_CERTIFICATE` (base64 `.p12`), `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_TEAM_ID`, `APPLE_APP_PASSWORD` |
+| Windows | `WINDOWS_CERTIFICATE` (base64 `.pfx`), `WINDOWS_CERTIFICATE_PASSWORD` |
+| Android | `ANDROID_KEYSTORE` (base64), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` |
+
+Without them, those builds are published unsigned. The iOS build is always unsigned, because installing it needs an Apple provisioning profile.
+
 ## Repository layout
 
 | Path | Contents |

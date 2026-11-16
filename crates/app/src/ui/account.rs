@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use dioxus::prelude::*;
 use parameters_api::{CreatedToken, Me, Mode, Scope, Scopes};
 
@@ -14,9 +16,27 @@ fn provider_label(name: &str) -> &'static str {
     }
 }
 
+fn encode(text: &str) -> String {
+    text.bytes().fold(String::new(), |mut out, byte| {
+        if byte.is_ascii_alphanumeric() || b"-._~/".contains(&byte) {
+            out.push(char::from(byte));
+        } else {
+            let _ = write!(out, "%{byte:02X}");
+        }
+        out
+    })
+}
+
 #[component]
 pub(crate) fn SignIn() -> Element {
     let me = use_context::<Signal<Option<Me>>>();
+    let route = use_route::<Route>();
+    let next = if matches!(route, Route::SignIn {}) {
+        "/".to_owned()
+    } else {
+        route.to_string()
+    };
+    let next_query = encode(&next);
     let mut email = use_signal(String::new);
     let mut sent = use_signal(|| false);
     let mut notice = use_signal(|| None::<Notice>);
@@ -31,11 +51,15 @@ pub(crate) fn SignIn() -> Element {
         };
     }
     let providers = current.map(|me| me.providers).unwrap_or_default();
-    let send = move |event: FormEvent| async move {
-        event.prevent_default();
-        match request_sign_in(email.read().clone()).await {
-            Ok(()) => sent.set(true),
-            Err(failure) => notice.set(Some(Notice::from(failure))),
+    let send = move |event: FormEvent| {
+        let next = next.clone();
+        async move {
+            event.prevent_default();
+            let address = email.read().clone();
+            match request_sign_in(address, Some(next)).await {
+                Ok(()) => sent.set(true),
+                Err(failure) => notice.set(Some(Notice::from(failure))),
+            }
         }
     };
     rsx! {
@@ -66,7 +90,12 @@ pub(crate) fn SignIn() -> Element {
             if !providers.is_empty() {
                 div { class: "providers",
                     for provider in providers {
-                        a { key: "{provider}", class: "button", href: "/auth/{provider}", "{provider_label(&provider)}" }
+                        a {
+                            key: "{provider}",
+                            class: "button",
+                            href: "/auth/{provider}?next={next_query}",
+                            "{provider_label(&provider)}"
+                        }
                     }
                 }
             }

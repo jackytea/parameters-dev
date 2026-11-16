@@ -1,5 +1,6 @@
 pub(crate) mod account;
 pub(crate) mod common;
+pub(crate) mod device;
 pub(crate) mod editor;
 pub(crate) mod nodes;
 pub(crate) mod runs;
@@ -12,7 +13,6 @@ use parameters_api::{Me, Mode};
 
 use crate::Route;
 use crate::api::me;
-use crate::ui::account::SignIn;
 use crate::ui::common::{on_client, script};
 
 const THEME_KEY: &str = "parameters-theme";
@@ -20,8 +20,17 @@ const THEME_KEY: &str = "parameters-theme";
 #[component]
 pub(crate) fn Shell() -> Element {
     let mut session = use_context_provider(|| Signal::new(None::<Me>));
-    let loaded = use_resource(|| async { if on_client() { me().await.ok() } else { None } });
-    use_effect(move || session.set(loaded.read().clone().flatten()));
+    let mut loaded = use_resource(|| async { if on_client() { Some(me().await) } else { None } });
+    use_effect(move || {
+        let current = loaded.read().clone().flatten().and_then(Result::ok);
+        session.set(current);
+    });
+    let unreachable = loaded
+        .read()
+        .clone()
+        .flatten()
+        .and_then(Result::err)
+        .map(|failure| failure.to_string());
     let current = session.read().clone();
     let managed = current.as_ref().is_some_and(|me| me.mode == Mode::Managed);
     let user = current.and_then(|me| me.user);
@@ -47,11 +56,17 @@ pub(crate) fn Shell() -> Element {
                         button {
                             class: "quiet",
                             r#type: "button",
-                            onclick: move |_| {
-                                script(
-                                    "fetch('/auth/signout', { method: 'POST', credentials: 'same-origin' })
-                                     .finally(() => location.assign('/signin'));",
-                                );
+                            onclick: move |_| async move {
+                                if cfg!(any(feature = "desktop", feature = "mobile")) {
+                                    #[cfg(any(feature = "desktop", feature = "mobile"))]
+                                    crate::native::sign_out().await;
+                                    loaded.restart();
+                                } else {
+                                    script(
+                                        "fetch('/auth/signout', { method: 'POST', credentials: 'same-origin' })
+                                         .finally(() => location.assign('/signin'));",
+                                    );
+                                }
                             },
                             "Sign out"
                         }
@@ -60,11 +75,51 @@ pub(crate) fn Shell() -> Element {
             }
         }
         main { class: "page",
-            if signed_out && !matches!(route, Route::SignIn {}) {
-                SignIn {}
-            } else {
-                Outlet::<Route> {}
-            }
+            {page(unreachable, signed_out, &route, move || loaded.restart())}
+        }
+    }
+}
+
+#[cfg(any(feature = "desktop", feature = "mobile"))]
+fn page(
+    unreachable: Option<String>,
+    signed_out: bool,
+    _route: &Route,
+    retry: impl FnMut() + Clone + 'static,
+) -> Element {
+    use crate::ui::device::native;
+    if let Some(problem) = unreachable {
+        let mut retry = retry;
+        return rsx! {
+            native::Unreachable { problem, on_retry: move |()| retry() }
+        };
+    }
+    if signed_out {
+        let mut retry = retry;
+        return rsx! {
+            native::SignIn { on_done: move |()| retry() }
+        };
+    }
+    rsx! {
+        Outlet::<Route> {}
+    }
+}
+
+#[cfg(not(any(feature = "desktop", feature = "mobile")))]
+fn page(
+    _unreachable: Option<String>,
+    signed_out: bool,
+    route: &Route,
+    _retry: impl FnMut() + Clone + 'static,
+) -> Element {
+    use crate::ui::account::SignIn;
+    if signed_out && !matches!(route, Route::SignIn {}) {
+        rsx! {
+            SignIn {}
+        }
+    } else {
+        rsx! {
+            Outlet::<Route> {}
         }
     }
 }
