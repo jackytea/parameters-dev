@@ -1,0 +1,14 @@
+2:1: error[P0002]: indent with spaces, not tabs
+    at `	`
+3:3: error[P0002]: this line is indented under a statement that cannot contain other statements
+    at `concurrency 2`
+7:3: error[P0002]: this line is indented differently from the lines above it
+    at `note "misaligned"`
+8:7: error[P0002]: this line is indented under a statement that cannot contain other statements
+    at `deeper is "y"`
+9:2: error[P0001]: `step` cannot be used inside a step
+    at `step`
+9:2: error[P0002]: this line is indented differently from the lines above it
+    at `step b uses shell.run`
+14:7: error[P0002]: statements cannot be nested this deeply
+    at `too is "deep"`

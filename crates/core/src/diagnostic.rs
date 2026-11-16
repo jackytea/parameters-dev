@@ -49,6 +49,12 @@ impl JsonPath {
     }
 
     #[must_use]
+    pub fn parent(&self) -> Option<Self> {
+        let (_, parent) = self.0.split_last()?;
+        Some(Self(parent.to_vec()))
+    }
+
+    #[must_use]
     pub fn segments(&self) -> &[PathSegment] {
         &self.0
     }
@@ -115,6 +121,9 @@ impl fmt::Display for Severity {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Code {
+    InvalidSyntax,
+    InvalidIndentation,
+    DuplicateStatement,
     InvalidName,
     ReservedName,
     InvalidNodeType,
@@ -139,9 +148,39 @@ pub enum Code {
 }
 
 impl Code {
+    pub const ALL: [Self; 24] = [
+        Self::InvalidSyntax,
+        Self::InvalidIndentation,
+        Self::DuplicateStatement,
+        Self::InvalidName,
+        Self::ReservedName,
+        Self::InvalidNodeType,
+        Self::DuplicateName,
+        Self::UnknownNodeType,
+        Self::BuiltinShadowed,
+        Self::UnknownField,
+        Self::MissingField,
+        Self::TypeMismatch,
+        Self::LiteralSecret,
+        Self::ReservedKey,
+        Self::InvalidSetting,
+        Self::InvalidExpression,
+        Self::UnknownReference,
+        Self::UnknownOutput,
+        Self::InvalidFieldAccess,
+        Self::UnknownStep,
+        Self::DependencyCycle,
+        Self::DefinitionCycle,
+        Self::UnknownLayoutEntry,
+        Self::LimitExceeded,
+    ];
+
     #[must_use]
     pub const fn id(self) -> &'static str {
         match self {
+            Self::InvalidSyntax => "P0001",
+            Self::InvalidIndentation => "P0002",
+            Self::DuplicateStatement => "P0003",
             Self::InvalidName => "P0101",
             Self::ReservedName => "P0102",
             Self::InvalidNodeType => "P0103",
@@ -163,6 +202,36 @@ impl Code {
             Self::DefinitionCycle => "P0402",
             Self::UnknownLayoutEntry => "P0501",
             Self::LimitExceeded => "P0502",
+        }
+    }
+
+    #[must_use]
+    pub const fn title(self) -> &'static str {
+        match self {
+            Self::InvalidSyntax => "invalid syntax",
+            Self::InvalidIndentation => "invalid indentation",
+            Self::DuplicateStatement => "duplicate statement",
+            Self::InvalidName => "invalid name",
+            Self::ReservedName => "reserved keyword used as a name",
+            Self::InvalidNodeType => "invalid node type",
+            Self::DuplicateName => "duplicate name",
+            Self::UnknownNodeType => "unknown node type",
+            Self::BuiltinShadowed => "built-in node redefined",
+            Self::UnknownField => "unknown field",
+            Self::MissingField => "missing required field",
+            Self::TypeMismatch => "type mismatch",
+            Self::LiteralSecret => "secret written as plain text",
+            Self::ReservedKey => "reserved `$` key",
+            Self::InvalidSetting => "invalid setting",
+            Self::InvalidExpression => "invalid expression",
+            Self::UnknownReference => "unknown reference",
+            Self::UnknownOutput => "unknown output",
+            Self::InvalidFieldAccess => "field access on a value without fields",
+            Self::UnknownStep => "unknown step",
+            Self::DependencyCycle => "dependency cycle",
+            Self::DefinitionCycle => "custom nodes that use each other",
+            Self::UnknownLayoutEntry => "layout entry for a missing step",
+            Self::LimitExceeded => "limit exceeded",
         }
     }
 
@@ -234,6 +303,15 @@ impl fmt::Display for Diagnostic {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn codes_are_unique_and_sorted() {
+        let ids: Vec<&str> = Code::ALL.iter().map(|code| code.id()).collect();
+        let mut sorted = ids.clone();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(ids, sorted);
+    }
 
     #[test]
     fn paths_render_as_json_pointers() {

@@ -1,0 +1,25 @@
+workflow "Syntax"
+  concurrency many
+  color "blue"
+
+input branch text
+input count: integer
+input region: text = region_default
+
+stpe build uses shell.run
+step deploy shell.run
+step test uses shell.run
+  aftr build
+  after and build
+  retry three times
+  retry 2 times
+  timeout 10 minutes
+  command "npm test"
+  command is "a"
+  command is "b"
+  note "unclosed {brace"
+
+output url deploy.url
+define deploy
+define node acme.empty
+  color is "red"

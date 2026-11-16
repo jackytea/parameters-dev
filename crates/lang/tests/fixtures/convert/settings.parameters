@@ -1,0 +1,37 @@
+workflow "Every setting"
+  note "Covers each statement once"
+  concurrency 2
+
+input name: text = "world"
+  note "Who to greet"
+input count: number = 3
+input flags: object = { "dry-run": true, retries: [1, 2] }
+input token: secret
+
+step greet uses log.write
+  note "Says hello"
+  timeout 1500ms
+  message is "Hello, {name} \{literal\}"
+
+step wait uses time.wait
+  after greet
+  when greet succeeded and not (count < 1 or count > 10)
+  retry 1 time
+  duration is "2s"
+
+step call uses http.request
+  after greet and wait
+  url is "https://example.com/{name}"
+  headers is { Authorization: "Bearer {token}", "X-Count": count }
+  body is [1, -2.5, 1e+100, true, "a\nb"]
+
+output greeting is greet
+output total: number is count
+
+define node fan.out
+  input target: text
+
+  step first uses log.write
+    message is target
+
+  output done: boolean is first succeeded

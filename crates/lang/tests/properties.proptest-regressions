@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc d2e29b0f78aee7d4c497397a82f7f179f6cee8258088403ce25be9b8588e8f2a # shrinks to expr = Expr { kind: Not(Expr { kind: Not(Expr { kind: Text([Reference(Reference { segments: [Segment { name: "build", span: Span { start: 0, end: 0 } }] })]), span: Span { start: 0, end: 0 } }), span: Span { start: 0, end: 0 } }), span: Span { start: 0, end: 0 } }
+cc 88d12ffca96d52aa007de4c68b49d8bb1aab2b908e3e0b9812184432677147e8 # shrinks to workflow = Workflow { version: 1, name: "", note: None, concurrency: None, inputs: [], steps: [Step { id: "build", uses: "shell.run", note: None, after: [], when: Some("[not { \"\": 1.858674517622105e+227 }]"), retry: None, timeout: None, with: OrderedMap { entries: [] } }], outputs: [], definitions: OrderedMap { entries: [] }, layout: OrderedMap { entries: [] } }

@@ -337,6 +337,18 @@ impl Parser<'_> {
         let mut characters = body.char_indices();
         while let Some((offset, character)) = characters.next() {
             match character {
+                '\\' if body[offset + 1..].starts_with('u') => {
+                    let (escaped, length) = unicode_escape(&body[offset..]).ok_or_else(|| {
+                        ExprError::new(
+                            "invalid unicode escape: write \\u{...} with 1 to 6 hexadecimal digits",
+                            Span::new(start + offset, start + offset + 2),
+                        )
+                    })?;
+                    literal.push(escaped);
+                    for _ in 1..length {
+                        characters.next();
+                    }
+                }
                 '\\' => {
                     let escaped = characters.next().map(|(_, escaped)| escaped);
                     let escape_end = start + offset + 1 + escaped.map_or(0, char::len_utf8);
@@ -347,7 +359,7 @@ impl Parser<'_> {
                         Some(escaped @ ('"' | '\\' | '{' | '}')) => escaped,
                         _ => {
                             return Err(ExprError::new(
-                                "unknown escape: use \\\", \\\\, \\n, \\t, \\r, \\{ or \\}",
+                                "unknown escape: use \\\", \\\\, \\n, \\t, \\r, \\{, \\} or \\u{...}",
                                 Span::new(start + offset, escape_end),
                             ));
                         }
@@ -504,6 +516,15 @@ fn comparison_operator(kind: TokenKind) -> Option<BinaryOperator> {
     })
 }
 
+fn unicode_escape(escape: &str) -> Option<(char, usize)> {
+    let digits = escape.strip_prefix("\\u{")?;
+    let close = digits
+        .find('}')
+        .filter(|&length| (1..=6).contains(&length))?;
+    let code = u32::from_str_radix(&digits[..close], 16).ok()?;
+    Some((char::from_u32(code)?, close + 4))
+}
+
 fn step_state(word: &str) -> Option<StepState> {
     match word {
         "succeeded" => Some(StepState::Succeeded),
@@ -588,6 +609,14 @@ mod tests {
     }
 
     #[test]
+    fn parses_unicode_escapes() {
+        let ExprKind::Text(parts) = parse(r#""a\u{1F600}\u{0}b""#).unwrap().kind else {
+            panic!("expected text");
+        };
+        assert_eq!(parts, [TextPart::Literal("a\u{1F600}\u{0}b".into())]);
+    }
+
+    #[test]
     fn parses_lists_and_objects() {
         let expr =
             parse(r#"{ text: "Deployed {deploy.url}", "Content-Type": "json", n: [1, -2.5,] }"#)
@@ -610,6 +639,9 @@ mod tests {
             (r#""{a b}""#, Span::new(2, 5), "only references"),
             (r#""}""#, Span::new(1, 2), "unmatched"),
             (r#""\q""#, Span::new(1, 3), "unknown escape"),
+            (r#""\u{110000}""#, Span::new(1, 3), "unicode escape"),
+            (r#""\u{}""#, Span::new(1, 3), "unicode escape"),
+            (r#""\u{1234567}""#, Span::new(1, 3), "unicode escape"),
             (r#""\é""#, Span::new(1, 4), "unknown escape"),
             (r#"secret "a-b""#, Span::new(7, 12), "secret names"),
             (r#"secret "{a}""#, Span::new(7, 12), "interpolation"),

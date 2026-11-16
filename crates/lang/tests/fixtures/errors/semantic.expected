@@ -1,0 +1,12 @@
+7:26: error[P0302]: unknown reference `brnach`; did you mean `branch`?
+    at `brnach`
+10:9: error[P0305]: unknown step `chekout`; did you mean `checkout`?
+    at `chekout`
+11:30: error[P0303]: `checkout` has no output `stout`; did you mean `stdout`?
+    at `stout`
+12:3: error[P0205]: expected path but found number
+    at `directory is 42`
+15:27: error[P0301]: expected a value but the expression ended
+    at ``
+19:18: error[P0303]: `build` has no output `nothing`
+    at `nothing`

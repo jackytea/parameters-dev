@@ -96,6 +96,16 @@ fn scan_number(bytes: &[u8], start: usize) -> usize {
         position += 1;
         position += count_while(&bytes[position..], |byte| byte.is_ascii_digit());
     }
+    if matches!(bytes.get(position), Some(b'e' | b'E')) {
+        let sign = usize::from(matches!(bytes.get(position + 1), Some(b'+' | b'-')));
+        if bytes
+            .get(position + 1 + sign)
+            .is_some_and(u8::is_ascii_digit)
+        {
+            position += 1 + sign;
+            position += count_while(&bytes[position..], |byte| byte.is_ascii_digit());
+        }
+    }
     position
 }
 
@@ -147,6 +157,19 @@ mod tests {
             .into_iter()
             .map(|token| token.kind)
             .collect()
+    }
+
+    #[test]
+    fn tokenizes_exponents_as_part_of_numbers() {
+        assert_eq!(
+            kinds("1e100 -2.5E-3 4e"),
+            [
+                TokenKind::Number,
+                TokenKind::Number,
+                TokenKind::Number,
+                TokenKind::Word
+            ]
+        );
     }
 
     #[test]

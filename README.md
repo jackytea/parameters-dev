@@ -23,6 +23,16 @@ dx serve --package parameters-app --platform web
 
 Fill in `.env` before starting the database: `POSTGRES_DB`, `POSTGRES_USER`, a long random `POSTGRES_PASSWORD`, and a `DATABASE_URL` built from them (`postgres://USER:PASSWORD@127.0.0.1:PORT/DB`). `POSTGRES_PORT` defaults to `5432`. `.env` is ignored by git and must never be committed.
 
+## The language
+
+Workflows are written in `.parameters` files or as JSON, and either one converts to the other. See the [language reference](docs/language.md) for the syntax and a full example. The JSON format is described by [schema/workflow.v1.json](schema/workflow.v1.json).
+
+```sh
+cargo run -p parameters-cli -- check deploy.parameters
+cargo run -p parameters-cli -- fmt deploy.parameters
+cargo run -p parameters-cli -- convert deploy.parameters --output deploy.json
+```
+
 ## Repository layout
 
 | Path | Contents |

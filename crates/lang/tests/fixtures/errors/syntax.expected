@@ -1,0 +1,36 @@
+2:3: error[P0001]: write `concurrency` followed by a whole number, such as `concurrency 4`
+    at `concurrency many`
+3:3: error[P0001]: a workflow can only contain `note` and `concurrency`
+    at `color`
+5:1: error[P0001]: expected `:` and a type after the input name, such as `input branch: text`
+    at `input branch text`
+6:14: error[P0001]: unknown type `integer`; use one of text, number, boolean, list, object, path, secret, any
+    at `integer`
+7:22: error[P0001]: defaults must be plain values such as "main", 3, true, lists or objects
+    at `region_default`
+9:1: error[P0001]: expected `workflow`, `input`, `step`, `output` or `define node`; did you mean `step`?
+    at `stpe`
+10:1: error[P0001]: expected `uses` and a node type after the step id, such as `step build uses shell.run`
+    at `step deploy shell.run`
+12:3: error[P0001]: expected `is` after `aftr`; fields are written as `name is value`; did you mean `after`?
+    at `aftr`
+13:9: error[P0001]: expected a step name before `and`
+    at `and`
+14:3: error[P0001]: write retries as `retry 3 times`
+    at `retry three times`
+15:3: error[P0003]: `retry` can only appear once here
+    at `retry 2 times`
+16:3: error[P0001]: write a timeout as a number and a unit, such as `timeout 30s` or `timeout 10m`
+    at `timeout 10 minutes`
+17:3: error[P0001]: expected `is` after `command`; fields are written as `name is value`
+    at `command`
+19:3: error[P0003]: the field `command` is already set in this step
+    at `command is "b"`
+20:18: error[P0001]: unclosed `{` in text: close it with `}` or write `\{`
+    at `{brace"`
+22:1: error[P0001]: expected `is` and a value after the output name, such as `output url is deploy.url`
+    at `output url deploy.url`
+23:1: error[P0001]: write custom nodes as `define node namespace.name`, such as `define node acme.deploy`
+    at `define deploy`
+25:3: error[P0001]: a custom node can only contain `note`, `input`, `step` and `output`
+    at `color`

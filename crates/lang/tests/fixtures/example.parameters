@@ -1,0 +1,50 @@
+workflow "Deploy site to Netlify"
+  note "Builds the site and deploys it when main changes"
+  concurrency 4
+
+input branch: text = "main"
+input site_dir: path = "site"
+
+step checkout uses process.run
+  program is "git"
+  arguments is ["clone", "--branch", branch, "https://github.com/acme/site", site_dir]
+
+step test uses shell.run
+  after checkout
+  command is "npm test"
+  directory is site_dir
+
+step lint uses shell.run
+  after checkout
+  command is "npm run lint"
+  directory is site_dir
+
+step deploy uses netlify.deploy
+  after test and lint
+  retry 3 times
+  timeout 10m
+  site is secret "NETLIFY_SITE_ID"
+  token is secret "NETLIFY_TOKEN"
+  folder is "{site_dir}/dist"
+
+step notify uses http.request
+  when deploy succeeded
+  method is "POST"
+  url is secret "SLACK_WEBHOOK_URL"
+  body is { text: "Deployed {deploy.url}" }
+
+output url is deploy.url
+
+define node netlify.deploy
+  note "Uploads a folder to a Netlify site"
+  input site: secret
+  input token: secret
+  input folder: path
+
+  step upload uses http.request
+    method is "POST"
+    url is "https://api.netlify.com/api/v1/sites/{site}/deploys"
+    headers is { Authorization: "Bearer {token}" }
+    file is folder
+
+  output url: text is upload.body.deploy_url

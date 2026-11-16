@@ -1,0 +1,20 @@
+workflow "Semantic"
+
+input branch: text
+
+step checkout uses process.run
+  program is "git"
+  arguments is ["clone", brnach]
+
+step build uses shell.run
+  after chekout
+  command is "make {checkout.stout}"
+  directory is 42
+
+step notify uses http.request
+  when build succeeded and
+  url is secret "HOOK"
+  body is {
+    text: "built {build.stdout}",
+    count: build.nothing
+  }

@@ -1,0 +1,145 @@
+{
+  "parameters": 1,
+  "name": "Deploy site to Netlify",
+  "note": "Builds the site and deploys it when main changes",
+  "concurrency": 4,
+  "inputs": [
+    {
+      "name": "branch",
+      "type": "text",
+      "default": "main"
+    },
+    {
+      "name": "site_dir",
+      "type": "path",
+      "default": "site"
+    }
+  ],
+  "steps": [
+    {
+      "id": "checkout",
+      "uses": "process.run",
+      "with": {
+        "program": "git",
+        "arguments": {
+          "$expr": "[\"clone\", \"--branch\", branch, \"https://github.com/acme/site\", site_dir]"
+        }
+      }
+    },
+    {
+      "id": "test",
+      "uses": "shell.run",
+      "after": [
+        "checkout"
+      ],
+      "with": {
+        "command": "npm test",
+        "directory": {
+          "$expr": "site_dir"
+        }
+      }
+    },
+    {
+      "id": "lint",
+      "uses": "shell.run",
+      "after": [
+        "checkout"
+      ],
+      "with": {
+        "command": "npm run lint",
+        "directory": {
+          "$expr": "site_dir"
+        }
+      }
+    },
+    {
+      "id": "deploy",
+      "uses": "netlify.deploy",
+      "after": [
+        "test",
+        "lint"
+      ],
+      "retry": 3,
+      "timeout": "10m",
+      "with": {
+        "site": {
+          "$expr": "secret \"NETLIFY_SITE_ID\""
+        },
+        "token": {
+          "$expr": "secret \"NETLIFY_TOKEN\""
+        },
+        "folder": {
+          "$expr": "\"{site_dir}/dist\""
+        }
+      }
+    },
+    {
+      "id": "notify",
+      "uses": "http.request",
+      "when": "deploy succeeded",
+      "with": {
+        "method": "POST",
+        "url": {
+          "$expr": "secret \"SLACK_WEBHOOK_URL\""
+        },
+        "body": {
+          "$expr": "{ text: \"Deployed {deploy.url}\" }"
+        }
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "name": "url",
+      "value": {
+        "$expr": "deploy.url"
+      }
+    }
+  ],
+  "definitions": {
+    "netlify.deploy": {
+      "note": "Uploads a folder to a Netlify site",
+      "inputs": [
+        {
+          "name": "site",
+          "type": "secret"
+        },
+        {
+          "name": "token",
+          "type": "secret"
+        },
+        {
+          "name": "folder",
+          "type": "path"
+        }
+      ],
+      "steps": [
+        {
+          "id": "upload",
+          "uses": "http.request",
+          "with": {
+            "method": "POST",
+            "url": {
+              "$expr": "\"https://api.netlify.com/api/v1/sites/{site}/deploys\""
+            },
+            "headers": {
+              "$expr": "{ Authorization: \"Bearer {token}\" }"
+            },
+            "file": {
+              "$expr": "folder"
+            }
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "url",
+          "type": "text",
+          "value": {
+            "$expr": "upload.body.deploy_url"
+          }
+        }
+      ]
+    }
+  }
+}

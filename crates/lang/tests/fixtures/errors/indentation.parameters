@@ -1,0 +1,14 @@
+workflow "Indentation"
+	note "tab"
+  concurrency 2
+
+step a uses shell.run
+    command is "x"
+  note "misaligned"
+      deeper is "y"
+ step b uses shell.run
+
+define node acme.deep
+  step s uses shell.run
+    command is "x"
+      too is "deep"

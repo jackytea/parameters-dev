@@ -1,8 +1,10 @@
 mod lexer;
 mod parser;
+mod print;
 
 pub use lexer::{Token, TokenKind, tokenize};
 pub use parser::parse;
+pub use print::{is_bare_key, print, print_value, quote};
 
 use crate::diagnostic::Span;
 

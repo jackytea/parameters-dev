@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::document::{Graph, Position, Step};
+use crate::document::{Graph, Position, Step, Workflow};
 use crate::graph::DependencyGraph;
 use crate::ordered_map::OrderedMap;
 
@@ -46,6 +46,12 @@ pub fn auto_layout(graph: &DependencyGraph) -> Vec<Position> {
         }
     }
     positions
+}
+
+pub fn complete_layouts(workflow: &mut Workflow) {
+    for graph in workflow.graphs_mut() {
+        complete_layout(graph.steps, graph.layout);
+    }
 }
 
 pub fn complete_layout(steps: &[Step], layout: &mut OrderedMap<Position>) {

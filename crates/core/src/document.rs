@@ -23,6 +23,24 @@ pub enum ValueType {
 }
 
 impl ValueType {
+    pub const ALL: [Self; 8] = [
+        Self::Text,
+        Self::Number,
+        Self::Boolean,
+        Self::List,
+        Self::Object,
+        Self::Path,
+        Self::Secret,
+        Self::Any,
+    ];
+
+    #[must_use]
+    pub fn from_name(name: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|value_type| value_type.name() == name)
+    }
+
     #[must_use]
     pub const fn accepts(self, value: Self) -> bool {
         matches!(
