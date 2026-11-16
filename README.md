@@ -31,7 +31,10 @@ Workflows are written in `.parameters` files or as JSON, and either one converts
 cargo run -p parameters-cli -- check deploy.parameters
 cargo run -p parameters-cli -- fmt deploy.parameters
 cargo run -p parameters-cli -- convert deploy.parameters --output deploy.json
+cargo run -p parameters-cli -- run examples/hello.parameters --input name=Ada
 ```
+
+`run` prints each step as it starts and finishes, then the workflow's outputs as JSON. Steps run in parallel unless one depends on another. Secrets are read from environment variables named `PARAMETERS_SECRET_<NAME>` and are masked in everything the run prints. See [examples/](examples) for workflows you can run locally.
 
 ## Repository layout
 

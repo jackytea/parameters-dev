@@ -1,0 +1,16 @@
+workflow "Files"
+  note "Writes a file, reads it back and counts its lines with the shell"
+
+step write uses file.write
+  path is "parameters-example/notes.txt"
+  content is "first\nsecond\nthird\n"
+
+step read uses file.read
+  path is write.path
+
+step count uses shell.run
+  after write
+  command is "wc -l < parameters-example/notes.txt"
+
+output content is read.content
+output lines is count.stdout

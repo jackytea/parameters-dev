@@ -1,0 +1,16 @@
+workflow "Hello"
+  note "Greets someone after two steps that run in parallel"
+
+input name: text = "world"
+
+step prepare uses time.wait
+  duration is "200ms"
+
+step warm_up uses time.wait
+  duration is "200ms"
+
+step greet uses log.write
+  after prepare and warm_up
+  message is "Hello, {name}!"
+
+output greeting is "Hello, {name}!"

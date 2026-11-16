@@ -3952,6 +3952,8 @@ dependencies = [
  "parameters-core",
  "parameters-engine",
  "parameters-lang",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -3970,6 +3972,13 @@ name = "parameters-engine"
 version = "0.1.0"
 dependencies = [
  "parameters-core",
+ "parameters-lang",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -5749,6 +5758,7 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",

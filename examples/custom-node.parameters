@@ -1,0 +1,25 @@
+workflow "Custom node"
+  note "Uses the same custom node twice"
+
+step first uses demo.announce
+  message is "first"
+
+step second uses demo.announce
+  message is "second"
+  pause is "100ms"
+
+output done is first succeeded and second succeeded
+
+define node demo.announce
+  note "Waits a moment, then logs a message"
+  input message: text
+  input pause: text = "50ms"
+
+  step wait uses time.wait
+    duration is pause
+
+  step say uses log.write
+    after wait
+    message is message
+
+  output said: text is message

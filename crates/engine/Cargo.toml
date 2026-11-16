@@ -12,3 +12,17 @@ workspace = true
 
 [dependencies]
 parameters-core.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+
+[dev-dependencies]
+parameters-lang.workspace = true
+tokio = { workspace = true, features = ["macros", "net"] }
+
+[[bench]]
+name = "scheduler"
+harness = false

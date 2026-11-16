@@ -1,3 +1,18 @@
-pub mod catalog;
+mod eval;
+mod event;
+mod node;
+mod nodes;
+mod plan;
+mod redact;
+mod registry;
+mod run;
+mod secrets;
 
-pub use catalog::builtins;
+pub use event::{Event, RunReport, RunStatus, StepReport, StepStatus};
+pub use node::{BoxFuture, Inputs, Node, NodeContext, NodeError, Values, scalar_text};
+pub use nodes::MAX_CAPTURED_BYTES;
+pub use plan::{CompileError, DEFAULT_CONCURRENCY, Plan, compile_plan};
+pub use redact::MASK;
+pub use registry::Registry;
+pub use run::{Engine, EngineError, MAX_COMPOSITE_DEPTH, RunControl};
+pub use secrets::{NoSecrets, SecretStore};

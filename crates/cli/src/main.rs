@@ -1,10 +1,12 @@
+mod execute;
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use parameters_core::layout::complete_layouts;
 use parameters_core::{from_json, to_json, validate};
-use parameters_engine::builtins;
+use parameters_engine::Registry;
 
 const USAGE: &str = "\
 Usage: parameters <command> [options] <files>
@@ -13,12 +15,16 @@ Commands:
   check <files>...                  Report syntax and validation problems
   fmt [--check] <files>...          Rewrite files in canonical form; with --check, only report
   convert <file> [--output <file>]  Convert .parameters text to JSON, or JSON to text
+  run <file> [--input name=value]   Run a workflow and print its outputs as JSON
   reference                         Print the language reference
   help                              Show this message
   version                           Show the version
 
 Files ending in .json are read as JSON workflow documents. Other files are read as
 Parameters text, usually with the .parameters extension.
+
+When running, secrets are read from environment variables named PARAMETERS_SECRET_<NAME>,
+and relative paths are resolved from the current directory.
 ";
 
 enum Failure {
@@ -58,6 +64,7 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
             fmt(&files(&rest)?, check_only)
         }
         "convert" => convert(rest),
+        "run" => execute::run(rest),
         "reference" => {
             print!("{}", parameters_lang::reference());
             Ok(ExitCode::SUCCESS)
@@ -75,7 +82,7 @@ fn run(args: &[String]) -> Result<ExitCode, Failure> {
 }
 
 fn check(files: &[PathBuf]) -> Result<ExitCode, Failure> {
-    let builtins = builtins();
+    let builtins = Registry::builtins();
     let mut errors = 0;
     let mut warnings = 0;
     for file in files {
