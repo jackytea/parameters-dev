@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT cron FROM triggers WHERE owner_id = $1 AND id = $2",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "cron",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "triggers",
+            "name": "cron"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "5574918289a38bd974b9ebb48f05034ad95aee487f150be94a3bc7edd1244c95"
+}

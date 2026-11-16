@@ -5,6 +5,7 @@ mod notify;
 mod queue;
 mod runs;
 mod secrets;
+mod triggers;
 mod workflows;
 
 use std::time::Duration;
@@ -21,6 +22,7 @@ pub use queue::{ClaimedRun, LogWrite, StepWrite};
 pub use runs::{NewRun, RunChanges};
 pub use secrets::EncryptedSecret;
 pub use sqlx::postgres::PgConnectOptions as ConnectOptions;
+pub use triggers::{FiringTrigger, TriggerRecord, WebhookSecret};
 pub use workflows::{NewWorkflow, StoredWorkflow, WorkflowUpdate};
 
 pub static MIGRATOR: Migrator = sqlx::migrate!();

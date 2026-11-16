@@ -1,0 +1,21 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT min(next_run_at) FROM triggers WHERE kind = 'schedule' AND enabled",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "min",
+        "type_info": "Timestamptz",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": []
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "c498e1f4c8bc8ee5020ac4ebf8faa2d5f7ec5cfc719bad52f94a2f1f771104ca"
+}

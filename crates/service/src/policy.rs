@@ -13,6 +13,7 @@ pub struct Capabilities {
     pub max_run_time: Option<Duration>,
     pub max_active_runs: Option<i64>,
     pub requests_per_minute: Option<u32>,
+    pub min_schedule_gap: Option<Duration>,
 }
 
 impl Capabilities {
@@ -22,6 +23,7 @@ impl Capabilities {
         max_run_time: None,
         max_active_runs: None,
         requests_per_minute: None,
+        min_schedule_gap: None,
     };
 
     pub const MANAGED: Self = Self {
@@ -30,6 +32,7 @@ impl Capabilities {
         max_run_time: Some(Duration::from_mins(15)),
         max_active_runs: Some(5),
         requests_per_minute: Some(600),
+        min_schedule_gap: Some(Duration::from_mins(5)),
     };
 }
 

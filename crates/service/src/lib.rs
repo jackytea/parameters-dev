@@ -13,6 +13,7 @@ mod review;
 mod runs;
 mod secrets;
 mod source;
+mod triggers;
 mod worker;
 mod workflows;
 
@@ -33,6 +34,7 @@ pub use mail::{Mail, MailFuture, Mailer, MemoryMailer, SmtpMailer};
 pub use oauth::{Identity, Provider, ProviderKind};
 pub use policy::Capabilities;
 pub use runs::RunWatch;
+pub use triggers::{HOOK_PREFIX, MAX_PAYLOAD_BYTES, PAYLOAD_INPUT};
 pub use worker::Background;
 pub use workflows::WorkflowWatch;
 

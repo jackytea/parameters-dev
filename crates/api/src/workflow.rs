@@ -11,6 +11,8 @@ pub enum Via {
     Ui,
     Mcp,
     Api,
+    Webhook,
+    Schedule,
 }
 
 impl Via {
@@ -20,14 +22,22 @@ impl Via {
             Self::Ui => "ui",
             Self::Mcp => "mcp",
             Self::Api => "api",
+            Self::Webhook => "webhook",
+            Self::Schedule => "schedule",
         }
     }
 
     #[must_use]
     pub fn from_name(name: &str) -> Option<Self> {
-        [Self::Ui, Self::Mcp, Self::Api]
-            .into_iter()
-            .find(|via| via.name() == name)
+        [
+            Self::Ui,
+            Self::Mcp,
+            Self::Api,
+            Self::Webhook,
+            Self::Schedule,
+        ]
+        .into_iter()
+        .find(|via| via.name() == name)
     }
 }
 

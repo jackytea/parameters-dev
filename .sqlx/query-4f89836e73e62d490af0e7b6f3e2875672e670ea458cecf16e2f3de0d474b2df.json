@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE triggers SET next_run_at = $2, last_fired_at = now(),\n                       enabled = enabled AND $2::timestamptz IS NOT NULL\n                   WHERE id = $1",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "4f89836e73e62d490af0e7b6f3e2875672e670ea458cecf16e2f3de0d474b2df"
+}

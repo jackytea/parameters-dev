@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use parameters_api::{ApiError, NodeInfo, SavedWorkflow, Source, Uuid};
+use parameters_api::{ApiError, NewTrigger, NodeInfo, SavedWorkflow, Source, Uuid};
 use parameters_core::to_json;
 use rmcp::ErrorData;
 use rmcp::model::{CallToolResult, JsonObject, Tool, ToolAnnotations};
@@ -14,7 +14,7 @@ use parameters_service::Actor;
 use crate::McpServer;
 use crate::output::{data, failure, run, text};
 
-pub const TOOL_NAMES: [&str; 11] = [
+pub const TOOL_NAMES: [&str; 14] = [
     "validate",
     "convert",
     "list_nodes",
@@ -26,6 +26,9 @@ pub const TOOL_NAMES: [&str; 11] = [
     "run_workflow",
     "get_run",
     "cancel_run",
+    "list_triggers",
+    "create_trigger",
+    "delete_trigger",
 ];
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, JsonSchema)]
@@ -134,6 +137,56 @@ struct RunIdInput {
     run_id: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+enum TriggerChoice {
+    Webhook,
+    Schedule,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct ListTriggersInput {
+    #[serde(default)]
+    #[schemars(description = "Only list the triggers of this workflow")]
+    workflow_id: Option<String>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct CreateTriggerInput {
+    #[schemars(description = "The workflow the trigger runs")]
+    workflow_id: String,
+    #[schemars(description = "A short name for the trigger")]
+    name: String,
+    #[schemars(
+        description = "`webhook` runs the workflow when its URL receives a POST; `schedule` runs it on a cron schedule"
+    )]
+    kind: TriggerChoice,
+    #[serde(default)]
+    #[schemars(
+        description = "For schedules: five cron fields in UTC (minute, hour, day of month, month, day of week), such as `0 9 * * 1-5`, or @hourly, @daily, @weekly, @monthly"
+    )]
+    cron: Option<String>,
+    #[serde(default)]
+    #[schemars(
+        description = "For webhooks: require an HMAC-SHA256 signature of the body in the X-Parameters-Signature header (sha256=<hex>)"
+    )]
+    signed: bool,
+    #[serde(default)]
+    #[schemars(
+        description = "Fixed values for the workflow's inputs. A webhook's request body is passed as the input named `payload` when the workflow declares one."
+    )]
+    inputs: Map<String, Value>,
+}
+
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct TriggerIdInput {
+    #[schemars(description = "The trigger id")]
+    trigger_id: String,
+}
+
 fn tool<T: JsonSchema>(
     name: &'static str,
     title: &str,
@@ -234,6 +287,24 @@ pub fn definitions() -> Vec<Tool> {
             "cancel_run",
             "Cancel a run",
             "Cancels a queued or running run.",
+            writing(true).idempotent(true),
+        ),
+        tool::<ListTriggersInput>(
+            "list_triggers",
+            "List triggers",
+            "Lists the webhooks and schedules that start the user's workflows.",
+            reading(),
+        ),
+        tool::<CreateTriggerInput>(
+            "create_trigger",
+            "Create a trigger",
+            "Adds a webhook or a schedule that starts a workflow. A webhook's address and signing secret are returned once; tell the user to keep them safe. Runs it starts still need approval for workflows that run commands or use files.",
+            writing(false),
+        ),
+        tool::<TriggerIdInput>(
+            "delete_trigger",
+            "Delete a trigger",
+            "Removes a webhook or a schedule.",
             writing(true).idempotent(true),
         ),
     ]
@@ -349,10 +420,57 @@ impl McpServer {
                 let input: RunIdInput = parse(arguments)?;
                 run(&service.get_run(actor, id(&input.run_id)?).await?)
             }
-            _ => {
+            "cancel_run" => {
                 let input: RunIdInput = parse(arguments)?;
                 let status = service.cancel_run(actor, id(&input.run_id)?).await?;
                 data(&json!({"status": status}))
+            }
+            _ => self.triggers(actor, name, arguments).await?,
+        })
+    }
+
+    async fn triggers(
+        &self,
+        actor: &Actor,
+        name: &str,
+        arguments: JsonObject,
+    ) -> Result<CallToolResult, ApiError> {
+        let service = &self.service;
+        Ok(match name {
+            "list_triggers" => {
+                let input: ListTriggersInput = parse(arguments)?;
+                let workflow = input.workflow_id.as_deref().map(id).transpose()?;
+                data(&json!({"triggers": service.list_triggers(actor, workflow).await?}))
+            }
+            "create_trigger" => {
+                let input: CreateTriggerInput = parse(arguments)?;
+                let kind = match (input.kind, input.cron) {
+                    (TriggerChoice::Webhook, _) => NewTrigger::Webhook {
+                        signed: input.signed,
+                    },
+                    (TriggerChoice::Schedule, Some(cron)) => NewTrigger::Schedule { cron },
+                    (TriggerChoice::Schedule, None) => {
+                        return Err(ApiError::bad_request("a schedule needs `cron`"));
+                    }
+                };
+                data(
+                    &service
+                        .create_trigger(
+                            actor,
+                            id(&input.workflow_id)?,
+                            &input.name,
+                            kind,
+                            input.inputs,
+                        )
+                        .await?,
+                )
+            }
+            _ => {
+                let input: TriggerIdInput = parse(arguments)?;
+                service
+                    .delete_trigger(actor, id(&input.trigger_id)?)
+                    .await?;
+                data(&json!({"deleted": true}))
             }
         })
     }

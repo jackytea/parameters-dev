@@ -1,6 +1,7 @@
 mod auth;
 mod guard;
 mod headers;
+mod hooks;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -53,6 +54,7 @@ async fn serve() -> Result<(), String> {
     let mcp = CancellationToken::new();
     let mut router = router
         .merge(auth::routes(service.clone()))
+        .merge(hooks::routes(service.clone()))
         .nest_service(
             "/mcp",
             parameters_mcp::http_service(service.clone(), mcp.clone()),

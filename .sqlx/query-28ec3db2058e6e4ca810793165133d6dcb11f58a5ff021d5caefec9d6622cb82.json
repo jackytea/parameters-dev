@@ -1,0 +1,164 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO triggers (id, owner_id, workflow_id, name, kind, token_hash,\n                                     secret_nonce, secret_ciphertext, cron, next_run_at, inputs)\n               VALUES ($1, $2, $3, $4, CASE WHEN $5::bytea IS NULL THEN 'schedule' ELSE 'webhook' END,\n                       $5, $6, $7, $8, $9, $10)\n               RETURNING id, workflow_id, name, kind, cron, next_run_at,\n                         secret_ciphertext IS NOT NULL AS \"has_secret!\", inputs, enabled,\n                         created_at, last_fired_at, last_error",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "triggers",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "workflow_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "triggers",
+            "name": "workflow_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "name",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "triggers",
+            "name": "name"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "kind",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "triggers",
+            "name": "kind"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "cron",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "triggers",
+            "name": "cron"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "next_run_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "triggers",
+            "name": "next_run_at"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "has_secret!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 7,
+        "name": "inputs",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "triggers",
+            "name": "inputs"
+          }
+        }
+      },
+      {
+        "ordinal": 8,
+        "name": "enabled",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "triggers",
+            "name": "enabled"
+          }
+        }
+      },
+      {
+        "ordinal": 9,
+        "name": "created_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "triggers",
+            "name": "created_at"
+          }
+        }
+      },
+      {
+        "ordinal": 10,
+        "name": "last_fired_at",
+        "type_info": "Timestamptz",
+        "origin": {
+          "Table": {
+            "table": "triggers",
+            "name": "last_fired_at"
+          }
+        }
+      },
+      {
+        "ordinal": 11,
+        "name": "last_error",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "triggers",
+            "name": "last_error"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Bytea",
+        "Bytea",
+        "Bytea",
+        "Text",
+        "Timestamptz",
+        "Jsonb"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      null,
+      false,
+      false,
+      false,
+      true,
+      true
+    ]
+  },
+  "hash": "28ec3db2058e6e4ca810793165133d6dcb11f58a5ff021d5caefec9d6622cb82"
+}

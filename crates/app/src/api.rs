@@ -3,9 +3,10 @@ use std::collections::BTreeMap;
 use dioxus::fullstack::ServerEvents;
 use dioxus::prelude::*;
 use parameters_api::{
-    CreatedToken, Format, ImportItem, Me, NodeInfo, NodeRecord, NodeSummary, Page, Problem,
-    Resolution, Review, RunState, RunSummary, RunUpdate, SavedWorkflow, Scopes, SecretSummary,
-    Source, TokenSummary, Uuid, WorkflowRecord, WorkflowSummary,
+    CreatedToken, CreatedTrigger, Format, ImportItem, Me, NewTrigger, NodeInfo, NodeRecord,
+    NodeSummary, Page, Problem, Resolution, Review, RunState, RunSummary, RunUpdate, SavedWorkflow,
+    Scopes, SecretSummary, Source, TokenSummary, TriggerSummary, Uuid, WorkflowRecord,
+    WorkflowSummary,
 };
 use parameters_core::{Definition, OrderedMap};
 use serde_json::{Map, Value};
@@ -232,4 +233,33 @@ pub(crate) async fn create_token(
 #[delete("/api/tokens/{id}")]
 pub(crate) async fn revoke_token(id: Uuid) -> Result<(), Failure> {
     Ok(service()?.revoke_token(&actor()?, id).await?)
+}
+
+#[get("/api/triggers?workflow")]
+pub(crate) async fn list_triggers(workflow: Option<Uuid>) -> Result<Vec<TriggerSummary>, Failure> {
+    Ok(service()?.list_triggers(&actor()?, workflow).await?)
+}
+
+#[post("/api/triggers")]
+pub(crate) async fn create_trigger(
+    workflow_id: Uuid,
+    name: String,
+    kind: NewTrigger,
+    inputs: Map<String, Value>,
+) -> Result<CreatedTrigger, Failure> {
+    Ok(service()?
+        .create_trigger(&actor()?, workflow_id, &name, kind, inputs)
+        .await?)
+}
+
+#[post("/api/triggers/{id}/enabled")]
+pub(crate) async fn set_trigger_enabled(id: Uuid, enabled: bool) -> Result<(), Failure> {
+    Ok(service()?
+        .set_trigger_enabled(&actor()?, id, enabled)
+        .await?)
+}
+
+#[delete("/api/triggers/{id}")]
+pub(crate) async fn delete_trigger(id: Uuid) -> Result<(), Failure> {
+    Ok(service()?.delete_trigger(&actor()?, id).await?)
 }

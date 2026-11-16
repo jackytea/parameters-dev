@@ -19,6 +19,7 @@ const EVENT_BUFFER: usize = 256;
 const MAX_BATCH: usize = 500;
 const MAX_LOG_BYTES: usize = 64 * 1024;
 const LISTENER_RETRY: Duration = Duration::from_secs(1);
+const SCHEDULE_TICK: Duration = Duration::from_secs(10);
 
 pub struct Background {
     service: Service,
@@ -51,6 +52,7 @@ impl Service {
         let mut tasks = JoinSet::new();
         tasks.spawn(listen(self.clone(), listener, shutdown.clone()));
         tasks.spawn(recover(self.clone(), shutdown.clone()));
+        tasks.spawn(schedule(self.clone(), shutdown.clone()));
         for _ in 0..self.inner.options.max_runs.max(1) {
             tasks.spawn(work(self.clone(), shutdown.clone()));
         }
@@ -105,6 +107,13 @@ async fn recover(service: Service, shutdown: CancellationToken) {
             }
             Err(error) => tracing::error!(%error, "cannot recover stale runs"),
         }
+    }
+}
+
+async fn schedule(service: Service, shutdown: CancellationToken) {
+    let mut ticker = tokio::time::interval(SCHEDULE_TICK);
+    while shutdown.run_until_cancelled(ticker.tick()).await.is_some() {
+        service.fire_due_schedules().await;
     }
 }
 

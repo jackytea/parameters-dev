@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE triggers\n               SET enabled = $3,\n                   next_run_at = CASE WHEN kind = 'schedule' THEN $4 ELSE next_run_at END\n               WHERE owner_id = $1 AND id = $2",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Bool",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "2d71a866670c2769352765ec66dd8ba8067022d7ff98f1d397c7964d1c8c4b16"
+}

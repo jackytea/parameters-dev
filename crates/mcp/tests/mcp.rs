@@ -390,3 +390,54 @@ async fn agents_only_reach_their_own_accounts_data(pool: PgPool) {
             .all(|node| node["privileged"] == false)
     );
 }
+
+#[sqlx::test(migrations = "../store/migrations")]
+async fn agents_manage_triggers(pool: PgPool) {
+    let (_, server) = server(&pool).await;
+    let created = ok(&call(
+        &server,
+        "create_workflow",
+        json!({"source": "workflow \"Hooked\"\n\ninput payload: any = 1\n\nstep a uses log.write\n  message is \"hi\"\n"}),
+    )
+    .await);
+    let id = created["id"].as_str().unwrap();
+    let hook = ok(&call(
+        &server,
+        "create_trigger",
+        json!({"workflow_id": id, "name": "Hook", "kind": "webhook", "signed": true}),
+    )
+    .await);
+    assert!(
+        hook["hook_path"]
+            .as_str()
+            .unwrap()
+            .starts_with("/hooks/whk_")
+    );
+    assert!(hook["signing_secret"].is_string());
+    let (message, _) = error(
+        &call(
+            &server,
+            "create_trigger",
+            json!({"workflow_id": id, "name": "Cron", "kind": "schedule"}),
+        )
+        .await,
+    );
+    assert!(message.contains("needs `cron`"), "{message}");
+    let schedule = ok(&call(
+        &server,
+        "create_trigger",
+        json!({"workflow_id": id, "name": "Daily", "kind": "schedule", "cron": "@daily"}),
+    )
+    .await);
+    let listed = ok(&call(&server, "list_triggers", json!({"workflow_id": id})).await);
+    assert_eq!(listed["triggers"].as_array().unwrap().len(), 2);
+    assert!(listed.to_string().find("signing_secret").is_none());
+    ok(&call(
+        &server,
+        "delete_trigger",
+        json!({"trigger_id": schedule["id"]}),
+    )
+    .await);
+    let listed = ok(&call(&server, "list_triggers", json!({})).await);
+    assert_eq!(listed["triggers"].as_array().unwrap().len(), 1);
+}

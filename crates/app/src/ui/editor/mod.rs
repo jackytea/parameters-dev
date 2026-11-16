@@ -1,6 +1,7 @@
 mod code;
 mod graph;
 mod inspector;
+mod triggers;
 
 use dioxus::prelude::*;
 use parameters_api::{ApiError, Me, Mode, Problem, Review, Source, Uuid, Via, WorkflowRecord};
@@ -362,6 +363,7 @@ fn EditorPage(id: Uuid) -> Element {
                 aside { class: "pane inspector", inspector::Inspector {} }
             }
             RunPanel { blocked: dirty || has_errors }
+            triggers::TriggersPanel {}
         }
         Link { class: "muted", to: Route::Workflows {}, "← All workflows" }
     }

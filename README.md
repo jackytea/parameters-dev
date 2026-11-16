@@ -97,6 +97,17 @@ The JSON API lives under `/api`:
 | `GET /api/secrets`, `PUT`, `DELETE /api/secrets/{name}` | List secret names, set a secret with `{"value": "..."}`, delete one. Values are never returned |
 | `GET /api/nodes`, `GET`, `PUT`, `DELETE /api/nodes/{type}`, `POST /api/nodes/{type}/rename`, `GET /api/nodes/{type}/users` | The custom node library |
 | `POST /api/node-imports/plan`, `POST /api/node-imports` | Preview and import custom nodes, renaming any that conflict |
+| `GET`, `POST /api/triggers`, `POST /api/triggers/{id}/enabled`, `DELETE /api/triggers/{id}` | Webhooks and schedules |
+| `POST /hooks/{token}` | Start a run through a webhook |
+
+## Triggers
+
+A workflow can start by itself. Add triggers in the editor's Triggers panel, through the API, or with the MCP `create_trigger` tool.
+
+- **Webhooks** get a secret address, `/hooks/whk_…`, shown once. A `POST` to it queues a run, and the request body (up to 256 KiB, JSON or text) becomes the workflow's input named `payload`, if it declares one. A signed webhook also needs `X-Parameters-Signature: sha256=<hex>`, the HMAC-SHA256 of the body with the trigger's signing secret. GitHub's `X-Hub-Signature-256` header is accepted too, so a GitHub webhook can use it directly. Each webhook accepts up to 60 calls a minute.
+- **Schedules** use five cron fields in UTC (minute, hour, day of month, month, day of week), with lists, ranges and steps such as `0 9 * * 1-5` or `*/15 * * * *`, or `@hourly`, `@daily`, `@weekly`, `@monthly` and `@yearly`. A schedule that was missed while the server was down runs once when it comes back, not once for every missed time.
+
+Runs started by triggers count as the workflow owner's runs: they need the same approval for commands and files, count against the same limits, and are labelled `webhook` or `schedule` in the Runs list. If a trigger cannot start a run, its last error is shown next to it. In managed mode, a schedule can run at most every 5 minutes.
 
 ## Managed mode
 
