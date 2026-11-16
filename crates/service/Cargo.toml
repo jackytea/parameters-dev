@@ -16,9 +16,12 @@ parameters-core.workspace = true
 parameters-lang.workspace = true
 parameters-engine.workspace = true
 parameters-store.workspace = true
+lettre.workspace = true
+reqwest = { workspace = true, features = ["json"] }
 ring.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+time.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 tracing.workspace = true

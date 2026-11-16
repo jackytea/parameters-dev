@@ -98,6 +98,29 @@ The JSON API lives under `/api`:
 | `GET /api/nodes`, `GET`, `PUT`, `DELETE /api/nodes/{type}`, `POST /api/nodes/{type}/rename`, `GET /api/nodes/{type}/users` | The custom node library |
 | `POST /api/node-imports/plan`, `POST /api/node-imports` | Preview and import custom nodes, renaming any that conflict |
 
+## Managed mode
+
+The same server runs the hosted service at parameters.dev. Set `PARAMETERS_MODE=managed` and it changes in these ways:
+
+- **Accounts:** people sign in with a link sent by email, or with Google, GitHub or Discord. Sessions last 30 days from the last visit and live in an `HttpOnly`, `SameSite=Lax` cookie, which is also `Secure` over https.
+- **Access tokens:** agents and scripts use access tokens (`prm_…`), created on the Account page. Each token is limited to `read`, `write` and/or `run`, can expire, can be revoked, and is shown only once. Only a hash is stored.
+- **Isolation:** every workflow, run, secret and custom node belongs to one account, and nothing is visible to another.
+- **Sandbox:**
+  - Steps that run commands or use files are not run.
+  - `http.request` refuses private, loopback, link-local and cloud metadata addresses, including through redirects and DNS names that resolve to them.
+- **Limits:** 500 steps per workflow, 15 minutes per run, 5 queued or running runs, and 600 requests a minute per account.
+- **Requests:** writes that use the session cookie must come from the app's own origin, and responses carry a content security policy and other security headers.
+
+| Variable | Purpose |
+| --- | --- |
+| `PARAMETERS_MODE` | `local` (default) or `managed` |
+| `PARAMETERS_PUBLIC_URL` | The address people use, such as `https://parameters.dev`; used in sign-in links and redirects |
+| `PARAMETERS_SMTP_URL`, `PARAMETERS_MAIL_FROM` | SMTP server for sign-in emails, such as `smtps://user:password@smtp.example.com:465`, and the sender |
+| `PARAMETERS_GOOGLE_CLIENT_ID`, `PARAMETERS_GOOGLE_CLIENT_SECRET` | Google sign-in; GitHub and Discord use `PARAMETERS_GITHUB_…` and `PARAMETERS_DISCORD_…`. Register `{PARAMETERS_PUBLIC_URL}/auth/{google,github,discord}/callback` as the redirect address |
+| `PARAMETERS_TRUST_PROXY` | `true` when a reverse proxy in front of the server sets `X-Forwarded-For` |
+
+Managed mode needs email or at least one sign-in provider. It may listen on any address, but it expects https in front of it.
+
 ## AI agents (MCP)
 
 The server speaks the [Model Context Protocol](https://modelcontextprotocol.io) at `http://localhost:8080/mcp` (Streamable HTTP), so an AI agent can read the language reference, write workflows, run them and read the results. To add it to Claude Code, for example:
@@ -113,6 +136,8 @@ claude mcp add --transport http parameters http://localhost:8080/mcp
 | Resource template | `parameters://nodes/{type}` | One node's description, inputs, outputs and example |
 | Tools (read) | `validate`, `convert`, `list_nodes`, `describe_node`, `list_workflows`, `get_workflow`, `get_run` | Check, convert and inspect |
 | Tools (change) | `create_workflow`, `update_workflow`, `run_workflow`, `cancel_run` | Save, run and stop workflows |
+
+In managed mode, connect with an access token from the Account page: `claude mcp add --transport http parameters https://parameters.dev/mcp --header "Authorization: Bearer prm_…"`.
 
 Agents cannot delete workflows or approve them. A workflow that runs commands or uses files only runs after a person approves that exact version in the app, and `run_workflow` tells the agent what is waiting for approval. Changes an agent makes are recorded as made through MCP. Run results are returned as data, with long values shortened, and labelled so the agent does not treat them as instructions. Custom nodes from the library that a workflow uses are copied into it when it is saved.
 

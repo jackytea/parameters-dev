@@ -1,3 +1,4 @@
+pub(crate) mod account;
 pub(crate) mod common;
 pub(crate) mod editor;
 pub(crate) mod nodes;
@@ -7,25 +8,64 @@ pub(crate) mod workflows;
 
 use dioxus::prelude::*;
 
+use parameters_api::{Me, Mode};
+
 use crate::Route;
+use crate::api::me;
+use crate::ui::account::SignIn;
 use crate::ui::common::{on_client, script};
 
 const THEME_KEY: &str = "parameters-theme";
 
 #[component]
 pub(crate) fn Shell() -> Element {
+    let mut session = use_context_provider(|| Signal::new(None::<Me>));
+    let loaded = use_resource(|| async { if on_client() { me().await.ok() } else { None } });
+    use_effect(move || session.set(loaded.read().clone().flatten()));
+    let current = session.read().clone();
+    let managed = current.as_ref().is_some_and(|me| me.mode == Mode::Managed);
+    let user = current.and_then(|me| me.user);
+    let signed_out = managed && user.is_none() && loaded.read().is_some();
+    let route = use_route::<Route>();
     rsx! {
         header { class: "topbar",
             Link { class: "brand", to: Route::Workflows {}, "Parameters" }
-            nav { class: "tabs",
-                Link { to: Route::Workflows {}, active_class: "active", "Workflows" }
-                Link { to: Route::Runs {}, active_class: "active", "Runs" }
-                Link { to: Route::Nodes {}, active_class: "active", "Nodes" }
-                Link { to: Route::Secrets {}, active_class: "active", "Secrets" }
+            if !signed_out {
+                nav { class: "tabs",
+                    Link { to: Route::Workflows {}, active_class: "active", "Workflows" }
+                    Link { to: Route::Runs {}, active_class: "active", "Runs" }
+                    Link { to: Route::Nodes {}, active_class: "active", "Nodes" }
+                    Link { to: Route::Secrets {}, active_class: "active", "Secrets" }
+                    Link { to: Route::Account {}, active_class: "active", "Account" }
+                }
             }
             ThemeToggle {}
+            if managed {
+                if let Some(user) = user {
+                    div { class: "signout",
+                        span { class: "muted", "{user.display_name}" }
+                        button {
+                            class: "quiet",
+                            r#type: "button",
+                            onclick: move |_| {
+                                script(
+                                    "fetch('/auth/signout', { method: 'POST', credentials: 'same-origin' })
+                                     .finally(() => location.assign('/signin'));",
+                                );
+                            },
+                            "Sign out"
+                        }
+                    }
+                }
+            }
         }
-        main { class: "page", Outlet::<Route> {} }
+        main { class: "page",
+            if signed_out && !matches!(route, Route::SignIn {}) {
+                SignIn {}
+            } else {
+                Outlet::<Route> {}
+            }
+        }
     }
 }
 

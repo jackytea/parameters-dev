@@ -1,0 +1,28 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE login_tokens SET consumed_at = now()\n               WHERE token_hash = $1 AND consumed_at IS NULL AND expires_at > now()\n               RETURNING email",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "email",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "login_tokens",
+            "name": "email"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "e83251687b1cba79bb7d811406fa3f1a2764442677a7e93dca95c9e01b5fd48a"
+}

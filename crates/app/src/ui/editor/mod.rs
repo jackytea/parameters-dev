@@ -3,7 +3,7 @@ mod graph;
 mod inspector;
 
 use dioxus::prelude::*;
-use parameters_api::{ApiError, Problem, Review, Source, Uuid, Via, WorkflowRecord};
+use parameters_api::{ApiError, Me, Mode, Problem, Review, Source, Uuid, Via, WorkflowRecord};
 use parameters_core::layout::complete_layouts;
 use parameters_core::{Position, ValueType, Workflow, to_json};
 use serde_json::{Map, Value};
@@ -430,6 +430,17 @@ fn ReviewPanel(review: Review, on_approved: EventHandler<()>) -> Element {
     let mut state = use_context::<EditorState>();
     if review.privileged.is_empty() && review.hosts.is_empty() && review.secrets.is_empty() {
         return rsx! {};
+    }
+    let managed = use_context::<Signal<Option<Me>>>()
+        .read()
+        .as_ref()
+        .is_some_and(|me| me.mode == Mode::Managed);
+    if managed && !review.privileged.is_empty() {
+        return rsx! {
+            p { class: "notice warning",
+                "This workflow uses steps that run commands or use files, which this server does not run. Export it and run it with Parameters on your own machine."
+            }
+        };
     }
     let hash = review.hash.clone();
     let id = state.id;

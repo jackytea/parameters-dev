@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
-use parameters_api::{ApiError, MAX_SECRET_BYTES, SecretSummary, check_secret_name};
+use parameters_api::{ApiError, MAX_SECRET_BYTES, Scope, SecretSummary, check_secret_name};
 use uuid::Uuid;
 
 use crate::{Actor, Result, Service, internal};
 
 impl Service {
     pub async fn list_secrets(&self, actor: &Actor) -> Result<Vec<SecretSummary>> {
+        actor.require(Scope::Read)?;
         self.store()
             .list_secrets(actor.user)
             .await
@@ -14,6 +15,7 @@ impl Service {
     }
 
     pub async fn set_secret(&self, actor: &Actor, name: &str, value: &str) -> Result<()> {
+        actor.require(Scope::Write)?;
         check_secret_name(name).map_err(ApiError::bad_request)?;
         if value.len() > MAX_SECRET_BYTES {
             return Err(ApiError::bad_request(format!(
@@ -32,6 +34,7 @@ impl Service {
     }
 
     pub async fn delete_secret(&self, actor: &Actor, name: &str) -> Result<()> {
+        actor.require(Scope::Write)?;
         if self
             .store()
             .delete_secret(actor.user, name)

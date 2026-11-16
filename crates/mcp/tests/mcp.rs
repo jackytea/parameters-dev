@@ -18,6 +18,7 @@ use serde_json::{Value, json};
 use sqlx::PgPool;
 
 const PERSON: Actor = Actor::local(Via::Ui);
+const AGENT: Actor = Actor::local(Via::Mcp);
 
 async fn server(pool: &PgPool) -> (Service, McpServer) {
     let mut options = Options::new(std::env::temp_dir());
@@ -37,7 +38,7 @@ async fn call(server: &McpServer, name: &str, arguments: Value) -> CallToolResul
     let Value::Object(arguments) = arguments else {
         panic!("arguments must be an object");
     };
-    server.call(name, arguments).await.unwrap()
+    server.call(&AGENT, name, arguments).await.unwrap()
 }
 
 fn texts(result: &CallToolResult) -> Vec<String> {
@@ -103,7 +104,7 @@ async fn an_agent_reads_the_reference_then_writes_and_runs_a_workflow(pool: PgPo
     let (service, server) = server(&pool).await;
     let background = service.run_in_background().await.unwrap();
 
-    let reference = server.read(LANGUAGE_REFERENCE).await.unwrap();
+    let reference = server.read(&AGENT, LANGUAGE_REFERENCE).await.unwrap();
     let ResourceContents::TextResourceContents {
         text, mime_type, ..
     } = &reference.contents[0]
@@ -112,9 +113,14 @@ async fn an_agent_reads_the_reference_then_writes_and_runs_a_workflow(pool: PgPo
     };
     assert_eq!(mime_type.as_deref(), Some("text/markdown"));
     assert!(text.contains("step") && text.contains("P0302"), "{text}");
-    assert!(server.read(WORKFLOW_SCHEMA).await.is_ok());
-    assert!(server.read("parameters://nodes/http.request").await.is_ok());
-    assert!(server.read("parameters://nowhere").await.is_err());
+    assert!(server.read(&AGENT, WORKFLOW_SCHEMA).await.is_ok());
+    assert!(
+        server
+            .read(&AGENT, "parameters://nodes/http.request")
+            .await
+            .is_ok()
+    );
+    assert!(server.read(&AGENT, "parameters://nowhere").await.is_err());
 
     let nodes = ok(&call(&server, "list_nodes", json!({})).await);
     let log = nodes["nodes"]
@@ -270,7 +276,7 @@ async fn bad_calls_explain_themselves(pool: PgPool) {
     let (_, server) = server(&pool).await;
     assert!(
         server
-            .call("delete_everything", serde_json::Map::new())
+            .call(&AGENT, "delete_everything", serde_json::Map::new())
             .await
             .is_err()
     );
@@ -287,4 +293,100 @@ async fn bad_calls_explain_themselves(pool: PgPool) {
         .await,
     );
     assert!(message.contains("there is no workflow"), "{message}");
+}
+
+#[sqlx::test(migrations = "../store/migrations")]
+async fn agents_only_reach_their_own_accounts_data(pool: PgPool) {
+    let mut options = Options::new(std::env::temp_dir());
+    options.capabilities = parameters_service::Capabilities::MANAGED;
+    options.managed = Some(parameters_service::Managed {
+        public_url: "https://parameters.test".into(),
+        mailer: None,
+        providers: Vec::new(),
+        trust_proxy: false,
+    });
+    let service = Service::new(
+        Store::from_pool(pool.clone()),
+        &EncryptionKey::from_bytes([3; 32]),
+        options,
+    )
+    .await
+    .unwrap();
+    let server = McpServer::new(service.clone());
+    let mut agents = Vec::new();
+    for (name, scopes) in [
+        ("ada", parameters_api::Scopes::ALL),
+        ("eve", parameters_api::Scopes::ALL),
+        (
+            "reader",
+            [parameters_api::Scope::Read].into_iter().collect(),
+        ),
+    ] {
+        let identity = parameters_service::Identity {
+            kind: parameters_service::ProviderKind::Github,
+            id: name.into(),
+            verified_email: None,
+            name: name.into(),
+        };
+        let session = service.sign_in_identity(&identity).await.unwrap();
+        let person = service.session_actor(&session).await.unwrap();
+        let token = service
+            .create_token(&person, "agent", scopes, None)
+            .await
+            .unwrap()
+            .token;
+        agents.push(service.token_actor(&token, Via::Mcp).await.unwrap());
+    }
+    let call = |actor: Actor, name: &'static str, arguments: Value| {
+        let server = server.clone();
+        async move {
+            let Value::Object(arguments) = arguments else {
+                panic!("arguments must be an object");
+            };
+            server.call(&actor, name, arguments).await.unwrap()
+        }
+    };
+    let (ada, eve, reader) = (agents[0], agents[1], agents[2]);
+    let created = ok(&call(
+        ada,
+        "create_workflow",
+        json!({"source": "workflow \"Ada's\"\n\nstep a uses log.write\n  message is \"hi\"\n"}),
+    )
+    .await);
+    let id = created["id"].as_str().unwrap().to_owned();
+    let started = ok(&call(ada, "run_workflow", json!({"workflow_id": id})).await);
+    let run = started["id"].as_str().unwrap().to_owned();
+
+    let listed = ok(&call(eve, "list_workflows", json!({})).await);
+    assert_eq!(listed["items"], json!([]));
+    for (name, arguments) in [
+        ("get_workflow", json!({"id": id})),
+        (
+            "update_workflow",
+            json!({"id": id, "version": 1, "source": "workflow \"Mine\"\n"}),
+        ),
+        ("run_workflow", json!({"workflow_id": id})),
+        ("get_run", json!({"run_id": run})),
+        ("cancel_run", json!({"run_id": run})),
+    ] {
+        let (message, details) = error(&call(eve, name, arguments).await);
+        assert_eq!(details["kind"], "not_found", "{name}: {message}");
+    }
+    let (_, details) = error(
+        &call(
+            reader,
+            "create_workflow",
+            json!({"source": "workflow \"No\"\n"}),
+        )
+        .await,
+    );
+    assert_eq!(details["kind"], "forbidden");
+    let nodes = ok(&call(ada, "list_nodes", json!({})).await);
+    assert!(
+        nodes["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|node| node["privileged"] == false)
+    );
 }

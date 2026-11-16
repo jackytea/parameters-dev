@@ -6,6 +6,7 @@ mod plan;
 mod redact;
 mod registry;
 mod run;
+mod sandbox;
 mod secrets;
 
 pub use event::{Event, RunReport, RunStatus, StepReport, StepStatus};
@@ -15,4 +16,5 @@ pub use plan::{CompileError, DEFAULT_CONCURRENCY, Plan, compile_plan};
 pub use redact::MASK;
 pub use registry::Registry;
 pub use run::{Engine, EngineError, MAX_COMPOSITE_DEPTH, RunControl};
+pub use sandbox::{Sandbox, is_public};
 pub use secrets::{NoSecrets, SecretStore};

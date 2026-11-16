@@ -1,5 +1,5 @@
 use parameters_api::{
-    ApiError, Format, Page, Problem, Review, SavedWorkflow, Source, Via, WorkflowRecord,
+    ApiError, Format, Page, Problem, Review, SavedWorkflow, Scope, Source, Via, WorkflowRecord,
     WorkflowSummary,
 };
 use parameters_core::layout::complete_layouts;
@@ -18,6 +18,7 @@ use crate::{Actor, Result, Service, internal, source};
 
 impl Service {
     pub async fn validate(&self, actor: &Actor, source: &Source) -> Result<Vec<Problem>> {
+        actor.require(Scope::Read)?;
         let library = self.library(actor.user).await?.workflow.definitions;
         let declared = source::declared(source);
         Ok(source::check(
@@ -37,6 +38,7 @@ impl Service {
         size: Option<u32>,
         after: Option<&str>,
     ) -> Result<Page<WorkflowSummary>> {
+        actor.require(Scope::Read)?;
         let request = PageRequest::new(size, after)?;
         let items = self
             .store()
@@ -50,10 +52,12 @@ impl Service {
     }
 
     pub async fn get_workflow(&self, actor: &Actor, id: Uuid) -> Result<WorkflowRecord> {
+        actor.require(Scope::Read)?;
         record(self.stored_workflow(actor, id).await?)
     }
 
     pub async fn create_workflow(&self, actor: &Actor, source: &Source) -> Result<SavedWorkflow> {
+        actor.require(Scope::Write)?;
         let Prepared {
             workflow,
             document,
@@ -83,6 +87,7 @@ impl Service {
         expected_version: i32,
         source: &Source,
     ) -> Result<SavedWorkflow> {
+        actor.require(Scope::Write)?;
         let Prepared {
             workflow,
             document,
@@ -116,6 +121,7 @@ impl Service {
     }
 
     pub async fn watch_workflow(&self, actor: &Actor, id: Uuid) -> Result<WorkflowWatch> {
+        actor.require(Scope::Read)?;
         let notifications = self.inner.hub.subscribe();
         self.stored_workflow(actor, id).await?;
         Ok(WorkflowWatch {
@@ -129,6 +135,7 @@ impl Service {
     }
 
     pub async fn delete_workflow(&self, actor: &Actor, id: Uuid) -> Result<()> {
+        actor.require(Scope::Write)?;
         if self
             .store()
             .delete_workflow(actor.user, id)
@@ -142,11 +149,13 @@ impl Service {
     }
 
     pub async fn review_workflow(&self, actor: &Actor, id: Uuid) -> Result<Review> {
+        actor.require(Scope::Read)?;
         let stored = self.stored_workflow(actor, id).await?;
         self.review(&stored, &parse_stored(&stored)?).await
     }
 
     pub async fn approve_workflow(&self, actor: &Actor, id: Uuid, hash: &str) -> Result<Review> {
+        actor.require(Scope::Write)?;
         if actor.via != Via::Ui {
             return Err(ApiError::bad_request(
                 "only a person can approve a workflow, from the Parameters app",

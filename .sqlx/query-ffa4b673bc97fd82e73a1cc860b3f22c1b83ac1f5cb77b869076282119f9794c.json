@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE sessions\n               SET last_seen_at = now(), expires_at = now() + make_interval(secs => $2)\n               WHERE token_hash = $1 AND expires_at > now()\n               RETURNING user_id",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "user_id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "sessions",
+            "name": "user_id"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Bytea",
+        "Float8"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "ffa4b673bc97fd82e73a1cc860b3f22c1b83ac1f5cb77b869076282119f9794c"
+}

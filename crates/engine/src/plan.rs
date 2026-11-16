@@ -20,6 +20,8 @@ pub enum CompileError {
     Invalid(Vec<Diagnostic>),
     #[error("{0}")]
     Unsupported(String),
+    #[error("this server does not run steps that run commands or use files: {}", .0.join(", "))]
+    NotAllowed(Vec<String>),
 }
 
 pub struct Plan {

@@ -8,6 +8,7 @@ mod ui;
 use dioxus::prelude::*;
 use parameters_api::Uuid;
 
+use crate::ui::account::{Account, SignIn};
 use crate::ui::editor::Editor;
 use crate::ui::nodes::Nodes;
 use crate::ui::runs::{RunPage, Runs};
@@ -43,6 +44,10 @@ enum Route {
         Nodes {},
         #[route("/secrets")]
         Secrets {},
+        #[route("/signin")]
+        SignIn {},
+        #[route("/account")]
+        Account {},
         #[route("/:..segments")]
         NotFound { segments: Vec<String> },
 }

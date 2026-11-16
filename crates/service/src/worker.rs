@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use parameters_api::{RunState, StepState};
@@ -227,16 +228,36 @@ async fn perform(service: &Service, run: &ClaimedRun, prepared: Prepared) -> Fin
         cancel.clone(),
         watching.clone(),
     ));
+    let deadline = service.inner.options.capabilities.max_run_time;
+    let expired = Arc::new(AtomicBool::new(false));
+    let timer = deadline.map(|limit| {
+        let (cancel, expired) = (cancel.clone(), Arc::clone(&expired));
+        tokio::spawn(async move {
+            tokio::time::sleep(limit).await;
+            expired.store(true, Ordering::Relaxed);
+            cancel.cancel();
+        })
+    });
     let control = RunControl {
         cancel,
         events: Some(events),
         secrets: Arc::new(prepared.secrets),
     };
-    let report = service
+    let mut report = service
         .inner
         .engine
         .run(&prepared.plan, prepared.inputs, control)
         .await;
+    if let Some(timer) = timer {
+        timer.abort();
+    }
+    if expired.load(Ordering::Relaxed) {
+        report.status = RunStatus::Failed;
+        report.errors.push(format!(
+            "the run was stopped after {} minutes, the longest a run can take here",
+            deadline.map_or(0, |limit| limit.as_secs() / 60)
+        ));
+    }
     watching.cancel();
     let _ = watcher.await;
     let _ = writer.await;

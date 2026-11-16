@@ -3,6 +3,8 @@ use rmcp::ErrorData;
 use rmcp::model::{ReadResourceResult, Resource, ResourceContents, ResourceTemplate};
 use serde_json::json;
 
+use parameters_service::Actor;
+
 use crate::McpServer;
 
 pub const LANGUAGE_REFERENCE: &str = "parameters://reference/language";
@@ -39,32 +41,31 @@ pub(crate) fn templates() -> Vec<ResourceTemplate> {
 }
 
 impl McpServer {
-    pub async fn read(&self, uri: &str) -> Result<ReadResourceResult, ErrorData> {
-        let (text, mime_type) = match uri {
-            LANGUAGE_REFERENCE => (parameters_lang::reference(), MARKDOWN),
-            WORKFLOW_SCHEMA => (pretty(&workflow_schema())?, JSON),
-            _ => match uri.strip_prefix(NODE_PREFIX) {
-                Some(type_name) => {
-                    let node = self
-                        .service
-                        .describe_node(&self.actor, type_name)
-                        .await
-                        .map_err(|error| {
-                            ErrorData::resource_not_found(
-                                error.to_string(),
-                                Some(json!({"uri": uri})),
-                            )
-                        })?;
-                    (pretty(&node)?, JSON)
-                }
-                None => {
-                    return Err(ErrorData::resource_not_found(
-                        format!("there is no resource at {uri}"),
-                        Some(json!({"uri": uri})),
-                    ));
-                }
-            },
-        };
+    pub async fn read(&self, actor: &Actor, uri: &str) -> Result<ReadResourceResult, ErrorData> {
+        let (text, mime_type) =
+            match uri {
+                LANGUAGE_REFERENCE => (parameters_lang::reference(), MARKDOWN),
+                WORKFLOW_SCHEMA => (pretty(&workflow_schema())?, JSON),
+                _ => match uri.strip_prefix(NODE_PREFIX) {
+                    Some(type_name) => {
+                        let node = self.service.describe_node(actor, type_name).await.map_err(
+                            |error| {
+                                ErrorData::resource_not_found(
+                                    error.to_string(),
+                                    Some(json!({"uri": uri})),
+                                )
+                            },
+                        )?;
+                        (pretty(&node)?, JSON)
+                    }
+                    None => {
+                        return Err(ErrorData::resource_not_found(
+                            format!("there is no resource at {uri}"),
+                            Some(json!({"uri": uri})),
+                        ));
+                    }
+                },
+            };
         Ok(ReadResourceResult::new(vec![
             ResourceContents::TextResourceContents {
                 uri: uri.to_owned(),

@@ -19,6 +19,8 @@ parameters-store = { path = "crates/store" }
 parameters-service = { path = "crates/service" }
 parameters-mcp = { path = "crates/mcp" }
 dioxus = { version = "0.7.10", features = ["fullstack", "router"] }
+http = "1.5.0"
+lettre = { version = "0.11.23", default-features = false, features = ["builder", "ring", "smtp-transport", "tokio1", "tokio1-rustls", "webpki-roots"] }
 proptest = "1.12.0"
 schemars = "1.2.3"
 serde = { version = "1.0.229", features = ["derive"] }

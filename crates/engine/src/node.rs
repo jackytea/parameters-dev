@@ -48,6 +48,11 @@ pub struct NodeContext {
 
 impl NodeContext {
     #[must_use]
+    pub fn sandbox(&self) -> crate::sandbox::Sandbox {
+        self.shared.sandbox
+    }
+
+    #[must_use]
     pub fn http(&self) -> &reqwest::Client {
         &self.shared.http
     }

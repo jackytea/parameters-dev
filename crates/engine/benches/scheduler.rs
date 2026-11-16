@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use parameters_core::{FieldValue, Port, Signature, Step, ValueType, Workflow};
 use parameters_engine::{
     BoxFuture, Engine, Inputs, Node, NodeContext, NodeError, Registry, RunControl, RunStatus,
-    Values,
+    Sandbox, Values,
 };
 use serde_json::json;
 
@@ -51,7 +51,7 @@ fn workflow(chained: bool) -> Workflow {
 fn main() -> ExitCode {
     let mut registry = Registry::empty();
     registry.register("bench.echo", Echo);
-    let Ok(engine) = Engine::new(registry, std::env::temp_dir()) else {
+    let Ok(engine) = Engine::new(registry, std::env::temp_dir(), Sandbox::OPEN) else {
         eprintln!("cannot create the engine");
         return ExitCode::FAILURE;
     };

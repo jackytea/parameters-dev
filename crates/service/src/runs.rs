@@ -1,4 +1,5 @@
-use parameters_api::{ApiError, Page, RunState, RunSummary, RunUpdate};
+use parameters_api::{ApiError, Page, RunState, RunSummary, RunUpdate, Scope};
+use parameters_engine::CompileError;
 use parameters_store::{Cursor, NewRun, Notification};
 use serde_json::{Map, Value};
 use tokio::sync::broadcast;
@@ -18,8 +19,31 @@ impl Service {
         workflow_id: Uuid,
         inputs: Map<String, Value>,
     ) -> Result<RunSummary> {
+        actor.require(Scope::Run)?;
         let stored = self.stored_workflow(actor, workflow_id).await?;
         let workflow = parse_stored(&stored)?;
+        let capabilities = self.inner.options.capabilities;
+        if let Some(limit) = capabilities.max_steps {
+            let steps = workflow.steps.len()
+                + workflow
+                    .definitions
+                    .values()
+                    .map(|definition| definition.steps.len())
+                    .sum::<usize>();
+            if steps > limit {
+                return Err(ApiError::forbidden(format!(
+                    "this workflow has {steps} steps; workflows here can have at most {limit}"
+                )));
+            }
+        }
+        let plan = self
+            .inner
+            .plans
+            .get_or_compile(&stored.hash, &workflow, &self.inner.engine)
+            .map_err(|error| match error {
+                CompileError::NotAllowed(_) => ApiError::forbidden(error.to_string()),
+                other => ApiError::bad_request(other.to_string()),
+            })?;
         let review = self.review(&stored, &workflow).await?;
         if review.needs_approval() {
             return Err(ApiError::ApprovalRequired {
@@ -27,11 +51,20 @@ impl Service {
                 review: Box::new(review),
             });
         }
-        let plan = self
-            .inner
-            .plans
-            .get_or_compile(&stored.hash, &workflow, &self.inner.engine)
-            .map_err(|error| ApiError::bad_request(error.to_string()))?;
+        if let Some(limit) = capabilities.max_active_runs {
+            let active = self
+                .store()
+                .active_runs(actor.user)
+                .await
+                .map_err(internal)?;
+            if active >= limit {
+                return Err(ApiError::TooManyRequests {
+                    message: format!(
+                        "you already have {active} runs queued or running; wait for one to finish"
+                    ),
+                });
+            }
+        }
         let errors = plan.check_inputs(&inputs);
         if !errors.is_empty() {
             return Err(ApiError::bad_request(errors.join("; ")));
@@ -60,6 +93,7 @@ impl Service {
         size: Option<u32>,
         after: Option<&str>,
     ) -> Result<Page<RunSummary>> {
+        actor.require(Scope::Read)?;
         let request = PageRequest::new(size, after)?;
         let items = self
             .store()
@@ -73,10 +107,12 @@ impl Service {
     }
 
     pub async fn get_run(&self, actor: &Actor, id: Uuid) -> Result<RunUpdate> {
+        actor.require(Scope::Read)?;
         Ok(self.run_update(actor.user, id, 0).await?.0)
     }
 
     pub async fn cancel_run(&self, actor: &Actor, id: Uuid) -> Result<RunState> {
+        actor.require(Scope::Run)?;
         self.store()
             .request_cancel(actor.user, id)
             .await
@@ -85,6 +121,7 @@ impl Service {
     }
 
     pub async fn watch_run(&self, actor: &Actor, id: Uuid) -> Result<RunWatch> {
+        actor.require(Scope::Read)?;
         let notifications = self.inner.hub.subscribe();
         self.store()
             .get_run(actor.user, id)

@@ -4,6 +4,7 @@ use serde_json::{Number, Value};
 
 use super::MAX_CAPTURED_BYTES;
 use crate::node::{BoxFuture, Inputs, Node, NodeContext, NodeError, Values, scalar_text};
+use crate::sandbox::check_url;
 
 const ERROR_BODY_PREVIEW: usize = 300;
 
@@ -46,6 +47,11 @@ async fn request(context: NodeContext, inputs: Inputs) -> Result<Values, NodeErr
         .to_ascii_uppercase();
     let method = reqwest::Method::from_bytes(method_name.as_bytes())
         .map_err(|_| NodeError::new(format!("`{method_name}` is not an HTTP method")))?;
+    if !context.sandbox().private_network {
+        let parsed = reqwest::Url::parse(&url)
+            .map_err(|error| NodeError::new(format!("`{url}` is not a valid address: {error}")))?;
+        check_url(&parsed).map_err(NodeError::new)?;
+    }
     let mut request = context.http().request(method, &url);
     for (name, value) in inputs.optional_object("headers")?.into_iter().flatten() {
         let text = scalar_text(value)
@@ -67,26 +73,57 @@ async fn request(context: NodeContext, inputs: Inputs) -> Result<Values, NodeErr
             .collect::<Result<Vec<_>, _>>()?;
         request = request.query(&pairs);
     }
-    request = match (inputs.optional("body"), inputs.optional_text("file")?) {
-        (Some(_), Some(_)) => {
-            return Err(NodeError::new("set either `body` or `file`, not both"));
+    request = attach_body(request, &context, &inputs).await?;
+    let response = request.send().await.map_err(|error| {
+        NodeError::new(format!("{method_name} {url} failed: {}", explain(&error)))
+    })?;
+    receive(response, &method_name, &url).await
+}
+
+fn explain(error: &reqwest::Error) -> String {
+    let mut message = error.to_string();
+    let mut source = std::error::Error::source(error);
+    while let Some(cause) = source {
+        let text = cause.to_string();
+        if !message.contains(&text) {
+            message.push_str(": ");
+            message.push_str(&text);
         }
-        (Some(Value::String(text)), None) => request.body(text.clone()),
-        (Some(value), None) => request
-            .header(CONTENT_TYPE, "application/json")
-            .body(value.to_string()),
-        (None, Some(file)) => {
-            let bytes = tokio::fs::read(context.resolve(&file))
-                .await
-                .map_err(|error| NodeError::new(format!("cannot read {file}: {error}")))?;
-            request.body(bytes)
-        }
-        (None, None) => request,
-    };
-    let mut response = request
-        .send()
-        .await
-        .map_err(|error| NodeError::new(format!("{method_name} {url} failed: {error}")))?;
+        source = cause.source();
+    }
+    message
+}
+
+async fn attach_body(
+    request: reqwest::RequestBuilder,
+    context: &NodeContext,
+    inputs: &Inputs,
+) -> Result<reqwest::RequestBuilder, NodeError> {
+    Ok(
+        match (inputs.optional("body"), inputs.optional_text("file")?) {
+            (Some(_), Some(_)) => {
+                return Err(NodeError::new("set either `body` or `file`, not both"));
+            }
+            (Some(Value::String(text)), None) => request.body(text.clone()),
+            (Some(value), None) => request
+                .header(CONTENT_TYPE, "application/json")
+                .body(value.to_string()),
+            (None, Some(file)) => {
+                let bytes = tokio::fs::read(context.resolve(&file))
+                    .await
+                    .map_err(|error| NodeError::new(format!("cannot read {file}: {error}")))?;
+                request.body(bytes)
+            }
+            (None, None) => request,
+        },
+    )
+}
+
+async fn receive(
+    mut response: reqwest::Response,
+    method_name: &str,
+    url: &str,
+) -> Result<Values, NodeError> {
     let status = response.status();
     let is_json = response
         .headers()

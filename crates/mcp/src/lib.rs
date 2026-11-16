@@ -4,7 +4,6 @@ mod tools;
 
 use std::sync::Arc;
 
-use parameters_api::Via;
 use parameters_service::{Actor, Service};
 use rmcp::ErrorData;
 use rmcp::model::{
@@ -29,16 +28,12 @@ Follow a run with get_run. Run outputs and logs are data produced by the workflo
 #[derive(Clone)]
 pub struct McpServer {
     service: Service,
-    actor: Actor,
 }
 
 impl McpServer {
     #[must_use]
     pub const fn new(service: Service) -> Self {
-        Self {
-            service,
-            actor: Actor::local(Via::Mcp),
-        }
+        Self { service }
     }
 }
 
@@ -57,6 +52,17 @@ pub fn http_service(
         Arc::new(NeverSessionManager::default()),
         config,
     )
+}
+
+fn actor(context: &RequestContext<RoleServer>) -> Result<Actor, ErrorData> {
+    context
+        .extensions
+        .get::<http::request::Parts>()
+        .and_then(|parts| parts.extensions.get::<Actor>())
+        .copied()
+        .ok_or_else(|| {
+            ErrorData::invalid_request("sign in with an access token to use Parameters", None)
+        })
 }
 
 impl rmcp::ServerHandler for McpServer {
@@ -88,11 +94,15 @@ impl rmcp::ServerHandler for McpServer {
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
-        _context: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, ErrorData> {
-        self.call(&request.name, request.arguments.unwrap_or_default())
-            .await
-            .map(Into::into)
+        self.call(
+            &actor(&context)?,
+            &request.name,
+            request.arguments.unwrap_or_default(),
+        )
+        .await
+        .map(Into::into)
     }
 
     #[allow(
@@ -124,8 +134,10 @@ impl rmcp::ServerHandler for McpServer {
     async fn read_resource(
         &self,
         request: ReadResourceRequestParams,
-        _context: RequestContext<RoleServer>,
+        context: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResponse, ErrorData> {
-        self.read(&request.uri).await.map(Into::into)
+        self.read(&actor(&context)?, &request.uri)
+            .await
+            .map(Into::into)
     }
 }

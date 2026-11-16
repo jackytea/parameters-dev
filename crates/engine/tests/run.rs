@@ -11,7 +11,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use parameters_engine::{
-    Engine, Event, MASK, Registry, RunControl, RunReport, RunStatus, StepStatus, Values,
+    CompileError, Engine, Event, MASK, Registry, RunControl, RunReport, RunStatus, Sandbox,
+    StepStatus, Values,
 };
 use serde_json::{Value, json};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -194,7 +195,7 @@ async fn run_in(
         .iter()
         .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
         .collect();
-    let engine = Engine::new(Registry::builtins(), directory)
+    let engine = Engine::new(Registry::builtins(), directory, Sandbox::OPEN)
         .unwrap()
         .with_retry_delay(Duration::from_millis(1));
     let plan = engine
@@ -627,5 +628,71 @@ step call uses http.request
             .ends_with("returned 404 Not Found: not here"),
         "{}",
         outcome.message("call")
+    );
+}
+
+#[tokio::test]
+async fn the_managed_sandbox_refuses_commands_files_and_private_addresses() {
+    let engine = Engine::new(Registry::builtins(), std::env::temp_dir(), Sandbox::MANAGED)
+        .unwrap()
+        .with_retry_delay(Duration::from_millis(1));
+    let privileged = parameters_lang::parse(
+        "workflow \"Shell\"
+
+step a uses shell.run
+  command is \"id\"
+
+define node acme.read
+  step b uses file.read
+    path is \"/etc/passwd\"
+",
+    )
+    .workflow;
+    match engine.compile(&privileged) {
+        Err(CompileError::NotAllowed(nodes)) => assert_eq!(nodes, ["file.read", "shell.run"]),
+        other => panic!("{:?}", other.err()),
+    }
+    let stub = Stub::start().await;
+    for url in [
+        format!("{}/echo", stub.base()),
+        format!("http://localhost:{}/echo", stub.address.port()),
+        "http://169.254.169.254/latest/meta-data".to_owned(),
+    ] {
+        let source = format!(
+            "workflow \"Fetch\"
+
+step fetch uses http.request
+  url is \"{url}\"
+"
+        );
+        let plan = engine
+            .compile(&parameters_lang::parse(&source).workflow)
+            .unwrap();
+        let report = engine
+            .run(&plan, Values::new(), RunControl::default())
+            .await;
+        assert_eq!(report.status, RunStatus::Failed, "{url}");
+        let message = report.step("fetch").unwrap().message.clone().unwrap();
+        assert!(message.contains("private or reserved"), "{url}: {message}");
+    }
+    assert!(stub.received("/echo").is_empty());
+    let open = Engine::new(Registry::builtins(), std::env::temp_dir(), Sandbox::OPEN).unwrap();
+    let source = format!(
+        "workflow \"Fetch\"
+
+step fetch uses http.request
+  url is \"{}/echo\"
+",
+        stub.base()
+    );
+    let plan = open
+        .compile(&parameters_lang::parse(&source).workflow)
+        .unwrap();
+    let report = open.run(&plan, Values::new(), RunControl::default()).await;
+    assert_eq!(
+        report.status,
+        RunStatus::Succeeded,
+        "{:?}",
+        report.step("fetch")
     );
 }

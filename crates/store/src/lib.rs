@@ -1,3 +1,4 @@
+mod accounts;
 mod cursor;
 mod nodes;
 mod notify;
@@ -12,6 +13,7 @@ use sqlx::migrate::Migrator;
 use sqlx::postgres::{PgConnectOptions, PgPool, PgPoolOptions};
 use uuid::Uuid;
 
+pub use accounts::NewToken;
 pub use cursor::Cursor;
 pub use nodes::{LibraryChange, StoredNode};
 pub use notify::{Listener, Notification};

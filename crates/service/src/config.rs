@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use parameters_store::ConnectOptions;
 
 use crate::cipher::EncryptionKey;
+use crate::oauth::{Provider, ProviderKind};
 
 const DEFAULT_MAX_RUNS: usize = 4;
 const MAX_RUNS: usize = 64;
@@ -28,7 +29,23 @@ impl ConfigError {
 }
 
 #[derive(Clone)]
+pub struct ManagedConfig {
+    pub public_url: String,
+    pub smtp_url: Option<String>,
+    pub mail_from: Option<String>,
+    pub providers: Vec<Provider>,
+    pub trust_proxy: bool,
+}
+
+#[derive(Clone)]
+pub enum ModeConfig {
+    Local,
+    Managed(Box<ManagedConfig>),
+}
+
+#[derive(Clone)]
 pub struct Config {
+    pub mode: ModeConfig,
     pub database: ConnectOptions,
     pub database_connections: u32,
     pub encryption_key: EncryptionKey,
@@ -45,6 +62,7 @@ impl fmt::Debug for Config {
             .field("address", &self.address)
             .field("workspace", &self.workspace)
             .field("max_runs", &self.max_runs)
+            .field("managed", &matches!(self.mode, ModeConfig::Managed(_)))
             .finish_non_exhaustive()
     }
 }
@@ -86,17 +104,18 @@ impl Config {
             })?,
             None => default_address,
         };
-        let allow_non_loopback = match value("PARAMETERS_ALLOW_NON_LOOPBACK").as_deref() {
-            None | Some("false") => false,
-            Some("true") => true,
+        let allow_non_loopback = flag(&value, "PARAMETERS_ALLOW_NON_LOOPBACK")?;
+        let mode = match value("PARAMETERS_MODE").as_deref() {
+            None | Some("local") => ModeConfig::Local,
+            Some("managed") => ModeConfig::Managed(Box::new(managed(&value)?)),
             Some(_) => {
                 return Err(ConfigError::new(
-                    "PARAMETERS_ALLOW_NON_LOOPBACK",
-                    "must be true or false",
+                    "PARAMETERS_MODE",
+                    "must be local or managed",
                 ));
             }
         };
-        if !address.ip().is_loopback() && !allow_non_loopback {
+        if matches!(mode, ModeConfig::Local) && !address.ip().is_loopback() && !allow_non_loopback {
             return Err(ConfigError::new(
                 "PARAMETERS_ADDRESS",
                 format!(
@@ -114,6 +133,7 @@ impl Config {
             })?,
         };
         Ok(Self {
+            mode,
             database,
             database_connections: number(
                 &value,
@@ -127,6 +147,77 @@ impl Config {
             max_runs: number(&value, "PARAMETERS_MAX_RUNS", DEFAULT_MAX_RUNS, MAX_RUNS)?,
         })
     }
+}
+
+fn flag(value: &impl Fn(&str) -> Option<String>, name: &'static str) -> Result<bool, ConfigError> {
+    match value(name).as_deref() {
+        None | Some("false") => Ok(false),
+        Some("true") => Ok(true),
+        Some(_) => Err(ConfigError::new(name, "must be true or false")),
+    }
+}
+
+fn public_url(text: &str) -> Result<String, ConfigError> {
+    let invalid = |problem: &str| ConfigError::new("PARAMETERS_PUBLIC_URL", problem);
+    let url = reqwest::Url::parse(text.trim())
+        .map_err(|_| invalid("must be a URL such as https://parameters.dev"))?;
+    let local = url
+        .host_str()
+        .is_some_and(|host| matches!(host, "localhost" | "127.0.0.1" | "[::1]"));
+    if url.scheme() != "https" && !(url.scheme() == "http" && local) {
+        return Err(invalid("must use https"));
+    }
+    if url.path() != "/" || url.query().is_some() || url.fragment().is_some() {
+        return Err(invalid(
+            "must be just the origin, such as https://parameters.dev",
+        ));
+    }
+    Ok(url.origin().ascii_serialization())
+}
+
+fn managed(value: &impl Fn(&str) -> Option<String>) -> Result<ManagedConfig, ConfigError> {
+    let public_url = value("PARAMETERS_PUBLIC_URL")
+        .ok_or_else(|| ConfigError::new("PARAMETERS_PUBLIC_URL", "is required in managed mode"))
+        .and_then(|url| public_url(&url))?;
+    let smtp_url = value("PARAMETERS_SMTP_URL");
+    let mail_from = value("PARAMETERS_MAIL_FROM");
+    if smtp_url.is_some() && mail_from.is_none() {
+        return Err(ConfigError::new(
+            "PARAMETERS_MAIL_FROM",
+            "is required when PARAMETERS_SMTP_URL is set",
+        ));
+    }
+    let mut providers = Vec::new();
+    for kind in ProviderKind::ALL {
+        let upper = kind.name().to_ascii_uppercase();
+        let id = value(&format!("PARAMETERS_{upper}_CLIENT_ID"));
+        let secret = value(&format!("PARAMETERS_{upper}_CLIENT_SECRET"));
+        match (id, secret) {
+            (Some(id), Some(secret)) => providers.push(Provider::new(kind, id, secret)),
+            (None, None) => {}
+            _ => {
+                return Err(ConfigError::new(
+                    "PARAMETERS_PUBLIC_URL",
+                    format!(
+                        "set both PARAMETERS_{upper}_CLIENT_ID and PARAMETERS_{upper}_CLIENT_SECRET, or neither"
+                    ),
+                ));
+            }
+        }
+    }
+    if smtp_url.is_none() && providers.is_empty() {
+        return Err(ConfigError::new(
+            "PARAMETERS_SMTP_URL",
+            "managed mode needs a way to sign in: set up email (PARAMETERS_SMTP_URL) or at least one of Google, GitHub and Discord",
+        ));
+    }
+    Ok(ManagedConfig {
+        public_url,
+        smtp_url,
+        mail_from,
+        providers,
+        trust_proxy: flag(value, "PARAMETERS_TRUST_PROXY")?,
+    })
 }
 
 fn number<T>(
@@ -204,6 +295,52 @@ mod tests {
                 ("PARAMETERS_ADDRESS", "[::1]:9000")
             ])
             .is_ok()
+        );
+    }
+
+    #[test]
+    fn managed_mode_needs_a_public_https_url_and_a_way_to_sign_in() {
+        let base = [
+            ("PARAMETERS_ENCRYPTION_KEY", KEY),
+            ("PARAMETERS_MODE", "managed"),
+            ("PARAMETERS_ADDRESS", "0.0.0.0:8080"),
+        ];
+        assert_eq!(config(&base).unwrap_err().name, "PARAMETERS_PUBLIC_URL");
+        let with = |extra: &[(&'static str, &'static str)]| {
+            let mut pairs = base.to_vec();
+            pairs.extend_from_slice(extra);
+            config(&pairs)
+        };
+        assert_eq!(
+            with(&[("PARAMETERS_PUBLIC_URL", "http://parameters.dev")])
+                .unwrap_err()
+                .name,
+            "PARAMETERS_PUBLIC_URL"
+        );
+        assert_eq!(
+            with(&[("PARAMETERS_PUBLIC_URL", "https://parameters.dev")])
+                .unwrap_err()
+                .name,
+            "PARAMETERS_SMTP_URL"
+        );
+        let parsed = with(&[
+            ("PARAMETERS_PUBLIC_URL", "https://parameters.dev/"),
+            ("PARAMETERS_GITHUB_CLIENT_ID", "id"),
+            ("PARAMETERS_GITHUB_CLIENT_SECRET", "hunter2"),
+        ])
+        .unwrap();
+        let ModeConfig::Managed(managed) = &parsed.mode else {
+            panic!("managed mode");
+        };
+        assert_eq!(managed.public_url, "https://parameters.dev");
+        assert_eq!(managed.providers.len(), 1);
+        assert!(!format!("{parsed:?}").contains("hunter2"));
+        assert!(
+            with(&[
+                ("PARAMETERS_PUBLIC_URL", "https://parameters.dev"),
+                ("PARAMETERS_GOOGLE_CLIENT_ID", "id"),
+            ])
+            .is_err()
         );
     }
 

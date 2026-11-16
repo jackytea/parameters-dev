@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use parameters_core::{ValueType, Workflow, from_json, validate};
 use parameters_engine::{
-    Engine, Event, Plan, Registry, RunControl, RunStatus, SecretStore, StepStatus, Values,
+    Engine, Event, Plan, Registry, RunControl, RunStatus, Sandbox, SecretStore, StepStatus, Values,
 };
 use serde_json::Value;
 use tokio::sync::mpsc;
@@ -36,8 +36,8 @@ pub(crate) fn run(args: &[String]) -> Result<ExitCode, Failure> {
     };
     let directory = std::env::current_dir()
         .map_err(|error| Failure::Io(format!("cannot read the current directory: {error}")))?;
-    let engine =
-        Engine::new(registry, directory).map_err(|error| Failure::Io(error.to_string()))?;
+    let engine = Engine::new(registry, directory, Sandbox::OPEN)
+        .map_err(|error| Failure::Io(error.to_string()))?;
     let plan = engine
         .compile(&workflow)
         .map_err(|error| Failure::Io(error.to_string()))?;

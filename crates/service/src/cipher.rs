@@ -72,6 +72,12 @@ impl Cipher {
         })
     }
 
+    pub(crate) fn random_bytes(&self) -> Result<[u8; 32], KeyError> {
+        let mut bytes = [0; 32];
+        self.random.fill(&mut bytes).map_err(|_| KeyError::Random)?;
+        Ok(bytes)
+    }
+
     pub(crate) fn random_uuid(&self) -> Result<Uuid, KeyError> {
         let mut bytes = [0; 16];
         self.random.fill(&mut bytes).map_err(|_| KeyError::Random)?;

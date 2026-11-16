@@ -706,3 +706,38 @@ textarea.source {
     display: none;
   }
 }
+
+.signin {
+  max-width: 28rem;
+  margin: 8vh auto;
+}
+
+.providers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.providers .button {
+  text-align: center;
+  color: var(--text);
+}
+
+.signout {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+fieldset.chips {
+  border: 1px solid var(--border);
+  margin: 0;
+  padding: 4px 8px;
+}
+
+label.chip {
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+}

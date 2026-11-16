@@ -55,6 +55,9 @@ Dependencies only point toward `core`:
 - MCP tools (`crates/mcp/src/tools.rs`) take their input schema from the struct that parses their arguments, report failures as tool errors (`isError`) so agents can correct themselves, and return run data through `output::run`, which clips it and labels it as untrusted.
 - Only a person in the app (`Via::Ui`) may approve a workflow that has privileged steps (`Node::privileged`); every changed version needs a new approval.
 - Local mode listens on loopback only and rejects requests whose `Host` or `Origin` is not localhost.
+- The mode decides the `Capabilities` (`crates/service/src/policy.rs`): sandbox, limits and rate. Check capabilities there, never `is_managed()` scattered through features.
+- Every service method that takes an `Actor` starts with `actor.require(Scope::…)`; every query is scoped by `actor.user`. The app's auth middleware (`crates/app/src/server/auth.rs`) is the only place that turns cookies and tokens into an `Actor`.
+- Tokens, sessions and sign-in links are random 32-byte values; only their SHA-256 hashes are stored.
 - Conventional Commits with a scope, such as `feat(core): ...`. Types: `feat`, `fix`, `docs`, `chore`, `style`, `refactor`, `ci`, `test`, `revert`, `perf`. No AI attribution lines in commits or pull requests.
 - UI: square edges (no border radius), theme tokens in CSS custom properties, light and dark modes.
 - UI data loads on the client only (`on_client()` in `crates/app/src/ui/common.rs`), so the server-rendered page and the first client render match. Live views use the server-sent event endpoints and reconnect after a pause.

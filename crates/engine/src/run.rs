@@ -18,6 +18,7 @@ use crate::plan::{
 };
 use crate::redact::Redactor;
 use crate::registry::Registry;
+use crate::sandbox::{Sandbox, http_client};
 use crate::secrets::{NoSecrets, SecretStore};
 
 pub const MAX_COMPOSITE_DEPTH: usize = 32;
@@ -31,6 +32,7 @@ pub struct EngineError(String);
 pub struct Engine {
     registry: Registry,
     http: reqwest::Client,
+    sandbox: Sandbox,
     directory: PathBuf,
     retry_delay: Duration,
 }
@@ -54,6 +56,7 @@ impl Default for RunControl {
 
 pub(crate) struct Shared {
     pub(crate) http: reqwest::Client,
+    pub(crate) sandbox: Sandbox,
     pub(crate) directory: PathBuf,
     pub(crate) cancel: CancellationToken,
     pub(crate) redactor: Redactor,
@@ -90,15 +93,16 @@ enum Attempt {
 }
 
 impl Engine {
-    pub fn new(registry: Registry, directory: impl Into<PathBuf>) -> Result<Self, EngineError> {
-        let http = reqwest::Client::builder()
-            .user_agent(concat!("parameters/", env!("CARGO_PKG_VERSION")))
-            .connect_timeout(Duration::from_secs(30))
-            .build()
-            .map_err(|error| EngineError(error.to_string()))?;
+    pub fn new(
+        registry: Registry,
+        directory: impl Into<PathBuf>,
+        sandbox: Sandbox,
+    ) -> Result<Self, EngineError> {
+        let http = http_client(sandbox).map_err(|error| EngineError(error.to_string()))?;
         Ok(Self {
             registry,
             http,
+            sandbox,
             directory: directory.into(),
             retry_delay: DEFAULT_RETRY_DELAY,
         })
@@ -115,7 +119,31 @@ impl Engine {
         &self.registry
     }
 
+    #[must_use]
+    pub const fn sandbox(&self) -> Sandbox {
+        self.sandbox
+    }
+
     pub fn compile(&self, workflow: &Workflow) -> Result<Plan, CompileError> {
+        if !self.sandbox.privileged_nodes {
+            let mut refused: Vec<String> = workflow
+                .steps
+                .iter()
+                .chain(
+                    workflow
+                        .definitions
+                        .values()
+                        .flat_map(|definition| &definition.steps),
+                )
+                .filter(|step| self.registry.is_privileged(&step.uses))
+                .map(|step| step.uses.clone())
+                .collect();
+            refused.sort_unstable();
+            refused.dedup();
+            if !refused.is_empty() {
+                return Err(CompileError::NotAllowed(refused));
+            }
+        }
         compile_plan(workflow, &self.registry)
     }
 
@@ -123,6 +151,7 @@ impl Engine {
         let started = Instant::now();
         let shared = Arc::new(Shared {
             http: self.http.clone(),
+            sandbox: self.sandbox,
             directory: self.directory.clone(),
             cancel: control.cancel,
             redactor: Redactor::default(),

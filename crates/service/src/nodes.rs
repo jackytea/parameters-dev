@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 
 use parameters_api::{
     ApiError, ImportItem, ImportStatus, NodeInfo, NodeKind, NodeRecord, NodeSummary, Problem,
-    Resolution, WorkflowSummary,
+    Resolution, Scope, WorkflowSummary,
 };
 use parameters_core::name::is_valid_node_type;
 use parameters_core::{
@@ -23,6 +23,7 @@ pub(crate) struct Library {
 
 impl Service {
     pub async fn list_nodes(&self, actor: &Actor) -> Result<Vec<NodeSummary>> {
+        actor.require(Scope::Read)?;
         self.store()
             .list_nodes(actor.user)
             .await
@@ -33,10 +34,15 @@ impl Service {
     }
 
     pub async fn node_catalog(&self, actor: &Actor) -> Result<Vec<NodeInfo>> {
+        actor.require(Scope::Read)?;
         let registry = self.registry();
         let mut catalog: Vec<NodeInfo> = registry
             .node_types()
             .into_iter()
+            .filter(|name| {
+                self.inner.options.capabilities.sandbox.privileged_nodes
+                    || !registry.is_privileged(name)
+            })
             .filter_map(|name| Some((name, registry.signature(name)?)))
             .map(|(name, signature)| builtin_info(registry, name, signature))
             .collect();
@@ -54,6 +60,7 @@ impl Service {
     }
 
     pub async fn describe_node(&self, actor: &Actor, type_name: &str) -> Result<NodeInfo> {
+        actor.require(Scope::Read)?;
         let registry = self.registry();
         if let Some(signature) = registry.signature(type_name) {
             return Ok(builtin_info(registry, type_name, signature));
@@ -68,6 +75,7 @@ impl Service {
     }
 
     pub async fn get_node(&self, actor: &Actor, type_name: &str) -> Result<NodeRecord> {
+        actor.require(Scope::Read)?;
         record(
             self.store()
                 .get_node(actor.user, type_name)
@@ -84,6 +92,7 @@ impl Service {
         definition: Definition,
         expected_version: Option<i32>,
     ) -> Result<NodeRecord> {
+        actor.require(Scope::Write)?;
         if !is_valid_node_type(type_name) {
             return Err(ApiError::bad_request(format!(
                 "`{type_name}` is not a valid node type: use a qualified name such as `acme.deploy`"
@@ -113,6 +122,7 @@ impl Service {
     }
 
     pub async fn rename_node(&self, actor: &Actor, from: &str, to: &str) -> Result<NodeRecord> {
+        actor.require(Scope::Write)?;
         let mut library = self.library(actor.user).await?;
         rename_node_type(&mut library.workflow, from, to, self.registry())
             .map_err(|error| ApiError::bad_request(error.to_string()))?;
@@ -126,6 +136,7 @@ impl Service {
         type_name: &str,
         expected_version: i32,
     ) -> Result<()> {
+        actor.require(Scope::Write)?;
         let mut library = self.library(actor.user).await?;
         if !library.stored.contains_key(type_name) {
             return Err(node_not_found(type_name));
@@ -155,6 +166,7 @@ impl Service {
         actor: &Actor,
         definitions: &OrderedMap<Definition>,
     ) -> Result<Vec<ImportItem>> {
+        actor.require(Scope::Read)?;
         let library = self.library(actor.user).await?;
         let items = plan_merge(&library.workflow.definitions, definitions, self.registry())
             .map_err(|error| ApiError::bad_request(error.to_string()))?;
@@ -167,6 +179,7 @@ impl Service {
         definitions: &OrderedMap<Definition>,
         resolutions: &BTreeMap<String, Resolution>,
     ) -> Result<Vec<ImportItem>> {
+        actor.require(Scope::Write)?;
         let mut library = self.library(actor.user).await?;
         let resolutions = resolutions
             .iter()
@@ -191,6 +204,7 @@ impl Service {
     }
 
     pub async fn node_users(&self, actor: &Actor, type_name: &str) -> Result<Vec<WorkflowSummary>> {
+        actor.require(Scope::Read)?;
         self.store()
             .workflows_using_node(actor.user, type_name)
             .await

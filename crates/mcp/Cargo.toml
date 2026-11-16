@@ -11,6 +11,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+http.workspace = true
 parameters-api.workspace = true
 parameters-core.workspace = true
 parameters-lang.workspace = true

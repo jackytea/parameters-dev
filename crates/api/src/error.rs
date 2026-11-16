@@ -27,6 +27,12 @@ pub enum ApiError {
         review: Box<Review>,
     },
     #[error("{message}")]
+    Unauthorized { message: String },
+    #[error("{message}")]
+    Forbidden { message: String },
+    #[error("{message}")]
+    TooManyRequests { message: String },
+    #[error("{message}")]
     Internal { message: String },
 }
 
@@ -39,6 +45,19 @@ impl ApiError {
 
     pub fn not_found(message: impl Into<String>) -> Self {
         Self::NotFound {
+            message: message.into(),
+        }
+    }
+
+    #[must_use]
+    pub fn signed_out() -> Self {
+        Self::Unauthorized {
+            message: "sign in to continue".into(),
+        }
+    }
+
+    pub fn forbidden(message: impl Into<String>) -> Self {
+        Self::Forbidden {
             message: message.into(),
         }
     }
@@ -57,7 +76,9 @@ impl ApiError {
             Self::BadRequest { .. } => 400,
             Self::NotFound { .. } => 404,
             Self::Conflict { .. } => 409,
-            Self::ApprovalRequired { .. } => 403,
+            Self::ApprovalRequired { .. } | Self::Forbidden { .. } => 403,
+            Self::Unauthorized { .. } => 401,
+            Self::TooManyRequests { .. } => 429,
             Self::Internal { .. } => 500,
         }
     }

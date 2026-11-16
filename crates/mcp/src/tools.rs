@@ -9,6 +9,8 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value, json};
 
+use parameters_service::Actor;
+
 use crate::McpServer;
 use crate::output::{data, failure, run, text};
 
@@ -240,6 +242,7 @@ pub fn definitions() -> Vec<Tool> {
 impl McpServer {
     pub async fn call(
         &self,
+        actor: &Actor,
         name: &str,
         arguments: JsonObject,
     ) -> Result<CallToolResult, ErrorData> {
@@ -250,18 +253,18 @@ impl McpServer {
             ));
         }
         Ok(self
-            .dispatch(name, arguments)
+            .dispatch(actor, name, arguments)
             .await
             .unwrap_or_else(|error| failure(&error)))
     }
 
     async fn dispatch(
         &self,
+        actor: &Actor,
         name: &str,
         arguments: JsonObject,
     ) -> Result<CallToolResult, ApiError> {
         let service = &self.service;
-        let actor = &self.actor;
         Ok(match name {
             "validate" => {
                 let input: SourceInput = parse(arguments)?;
