@@ -10,7 +10,7 @@ Parameters is a graph-based, English-like workflow automation language written i
 
 ## Commands
 
-- `cargo test --workspace --features parameters-app/server` — run all tests, including server-only code
+- `cargo test --workspace --features parameters-app/server` — run all tests, including server-only code; the database tests need `DATABASE_URL` pointing at a PostgreSQL server where the user can create databases (each test gets its own)
 - `cargo clippy --workspace --all-targets --features parameters-app/server -- -D warnings` — lint
 - `cargo clippy -p parameters-app --target wasm32-unknown-unknown --features web -- -D warnings` — lint the web build
 - `cargo fmt --all` — format
@@ -19,20 +19,23 @@ Parameters is a graph-based, English-like workflow automation language written i
 - `cargo bench -p parameters-engine` — scheduler benchmark; fails above 50 µs of overhead per step
 - `cargo run -p parameters-cli -- check|fmt|convert|run <file>` — the `parameters` command line tool
 - `cargo deny check` — advisories, licenses, sources
+- `cargo sqlx prepare --workspace -- --all-targets --features parameters-app/server` — regenerate `.sqlx` after changing a query or migration (needs `sqlx-cli` 0.9 and a migrated `DATABASE_URL`); commit the result, CI checks it
 - `dx serve --package parameters-app --platform web` — run the app
-- `docker compose up -d` — start PostgreSQL (needs `.env`, see `.env.example`)
+- `docker compose up -d` — start PostgreSQL and the server on `127.0.0.1:8080` (needs `.env`, see `.env.example`); `docker compose up -d database` starts only PostgreSQL
 
 ## Crates
 
 Dependencies only point toward `core`:
 
-- `lang`, `engine` and `store` depend on `core`.
-- `service` depends on `core`, `lang`, `engine` and `store`.
-- `mcp` depends on `core`, `lang` and `service`.
-- `app` depends on `core` and `lang`, plus `service` and `mcp` behind its `server` feature.
+- `lang` and `engine` depend on `core`.
+- `api` (wire types shared by the server, MCP and clients) depends on `core` and `lang`.
+- `store` depends on `api`.
+- `service` depends on `api`, `core`, `lang`, `engine` and `store`.
+- `mcp` depends on `api`, `core`, `lang` and `service`.
+- `app` depends on `api`, `core` and `lang`, plus `service` and `mcp` behind its `server` feature.
 - `cli` depends on `core`, `lang` and `engine`.
 
-- `core` and `lang` are pure (no I/O) and must compile to `wasm32-unknown-unknown`.
+- `core`, `lang` and `api` are pure (no I/O) and must compile to `wasm32-unknown-unknown`.
 - `engine`, `store`, `service` and `mcp` are server-only. `app` may only depend on them behind its `server` feature, and server-only code is gated with `#[cfg(feature = "server")]`. Anything else ships in the public WASM bundle.
 
 ## Rules
@@ -46,5 +49,9 @@ Dependencies only point toward `core`:
 - `docs/language.md` and `schema/workflow.v1.json` are generated from code; change the code, then regenerate them.
 - Built-in node field and output names must be valid names (not keywords); the registry test enforces this.
 - Nothing secret may leave the engine unmasked: reports, events, logs and errors all go through the run's redactor.
+- All SQL lives in `store`, written with the compile-time checked `sqlx::query!` macros. Migrations in `crates/store/migrations` are append-only: never edit one that has been committed.
+- Authorization and validation live in `service`. Server functions and MCP tools are thin adapters that pass an `Actor` and map `ApiError`; they never query the store directly.
+- Only a person in the app (`Via::Ui`) may approve a workflow that has privileged steps (`Node::privileged`); every changed version needs a new approval.
+- Local mode listens on loopback only and rejects requests whose `Host` or `Origin` is not localhost.
 - Conventional Commits with a scope, such as `feat(core): ...`. Types: `feat`, `fix`, `docs`, `chore`, `style`, `refactor`, `ci`, `test`, `revert`, `perf`. No AI attribution lines in commits or pull requests.
 - UI: square edges (no border radius), theme tokens in CSS custom properties, light and dark modes.

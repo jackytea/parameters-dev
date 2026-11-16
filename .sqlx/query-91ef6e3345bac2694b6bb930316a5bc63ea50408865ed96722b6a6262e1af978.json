@@ -1,0 +1,102 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT path, status, attempt, message, outputs, duration_ms, seq\n               FROM run_steps\n               WHERE run_id = $1 AND seq > $2 AND seq <= $3\n               ORDER BY seq",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "path",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "run_steps",
+            "name": "path"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "run_steps",
+            "name": "status"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "attempt",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "run_steps",
+            "name": "attempt"
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "message",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "run_steps",
+            "name": "message"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "outputs",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "run_steps",
+            "name": "outputs"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "duration_ms",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "run_steps",
+            "name": "duration_ms"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "seq",
+        "type_info": "Int8",
+        "origin": {
+          "Table": {
+            "table": "run_steps",
+            "name": "seq"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      true,
+      false,
+      true,
+      false
+    ]
+  },
+  "hash": "91ef6e3345bac2694b6bb930316a5bc63ea50408865ed96722b6a6262e1af978"
+}

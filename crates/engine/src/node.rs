@@ -31,6 +31,10 @@ impl NodeError {
 pub trait Node: Send + Sync + 'static {
     fn signature(&self) -> Signature;
 
+    fn privileged(&self) -> bool {
+        false
+    }
+
     fn run(&self, context: NodeContext, inputs: Inputs) -> BoxFuture<Result<Values, NodeError>>;
 }
 

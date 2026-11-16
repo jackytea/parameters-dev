@@ -1,0 +1,42 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "WITH stale AS (\n                   SELECT id FROM runs\n                   WHERE status = 'running' AND heartbeat_at < now() - make_interval(secs => $1)\n                   FOR UPDATE SKIP LOCKED\n               )\n               UPDATE runs\n               SET status = CASE\n                       WHEN runs.cancel_requested THEN 'cancelled'\n                       WHEN runs.attempts >= $2 THEN 'failed'\n                       ELSE 'queued'\n                   END,\n                   finished_at = CASE\n                       WHEN runs.cancel_requested OR runs.attempts >= $2 THEN now()\n                   END,\n                   errors = CASE\n                       WHEN runs.attempts >= $2 AND NOT runs.cancel_requested\n                       THEN jsonb_build_array($3::text)\n                       ELSE runs.errors\n                   END,\n                   claimed_by = NULL, heartbeat_at = NULL\n               FROM stale\n               WHERE runs.id = stale.id\n               RETURNING runs.id, runs.status",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "status"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Float8",
+        "Int4",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false
+    ]
+  },
+  "hash": "82d4d97f05c458182d187c48ca660c16b5d759fe6851d7500c9ba3268599c28f"
+}

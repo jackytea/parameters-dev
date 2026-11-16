@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO node_definitions (owner_id, type_name, definition, content_hash)\n                       VALUES ($1, $2, $3::text::json, $4)\n                       ON CONFLICT (owner_id, type_name) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Text",
+        "Bytea"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "061c151661e48d0c9a39ec9823ef6af09e56f5a48a86a7df7948386c6dce7df2"
+}

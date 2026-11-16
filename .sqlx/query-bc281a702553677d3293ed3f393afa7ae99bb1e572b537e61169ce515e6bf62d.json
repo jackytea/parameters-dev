@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE runs\n               SET status = $3, outputs = $4, errors = $5, finished_at = now(),\n                   claimed_by = NULL, heartbeat_at = NULL\n               WHERE id = $1 AND claimed_by = $2 AND status = 'running'",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid",
+        "Text",
+        "Jsonb",
+        "Jsonb"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bc281a702553677d3293ed3f393afa7ae99bb1e572b537e61169ce515e6bf62d"
+}

@@ -11,7 +11,19 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+parameters-api.workspace = true
 parameters-core.workspace = true
 parameters-lang.workspace = true
 parameters-engine.workspace = true
 parameters-store.workspace = true
+ring.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+sqlx.workspace = true
+tokio = { workspace = true, features = ["macros"] }

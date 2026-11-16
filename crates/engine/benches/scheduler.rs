@@ -1,11 +1,10 @@
 use std::process::ExitCode;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use parameters_core::{FieldValue, Port, Signature, Step, ValueType, Workflow};
 use parameters_engine::{
-    BoxFuture, Engine, Inputs, NoSecrets, Node, NodeContext, NodeError, Registry, RunControl,
-    RunStatus, Values,
+    BoxFuture, Engine, Inputs, Node, NodeContext, NodeError, Registry, RunControl, RunStatus,
+    Values,
 };
 use serde_json::json;
 
@@ -48,7 +47,7 @@ fn workflow(chained: bool) -> Workflow {
 fn main() -> ExitCode {
     let mut registry = Registry::empty();
     registry.register("bench.echo", Echo);
-    let Ok(engine) = Engine::new(registry, Arc::new(NoSecrets), std::env::temp_dir()) else {
+    let Ok(engine) = Engine::new(registry, std::env::temp_dir()) else {
         eprintln!("cannot create the engine");
         return ExitCode::FAILURE;
     };

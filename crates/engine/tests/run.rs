@@ -194,7 +194,7 @@ async fn run_in(
         .iter()
         .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
         .collect();
-    let engine = Engine::new(Registry::builtins(), Arc::new(secrets), directory)
+    let engine = Engine::new(Registry::builtins(), directory)
         .unwrap()
         .with_retry_delay(Duration::from_millis(1));
     let plan = engine
@@ -216,6 +216,7 @@ async fn run_in(
             inputs,
             RunControl {
                 events: Some(sender),
+                secrets: Arc::new(secrets),
                 ..control
             },
         )

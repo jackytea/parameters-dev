@@ -1,0 +1,95 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE runs\n               SET status = 'running', claimed_by = $1, heartbeat_at = now(),\n                   attempts = attempts + 1, started_at = coalesce(started_at, now())\n               WHERE id = (\n                   SELECT id FROM runs\n                   WHERE status = 'queued'\n                   ORDER BY created_at, id\n                   FOR UPDATE SKIP LOCKED\n                   LIMIT 1\n               )\n               RETURNING id, owner_id AS owner, snapshot::text AS \"snapshot!\",\n                         document_hash AS hash, inputs, attempts,\n                         cancel_requested",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "id"
+          }
+        }
+      },
+      {
+        "ordinal": 1,
+        "name": "owner",
+        "type_info": "Uuid",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "owner_id"
+          }
+        }
+      },
+      {
+        "ordinal": 2,
+        "name": "snapshot!",
+        "type_info": "Text",
+        "origin": "Expression"
+      },
+      {
+        "ordinal": 3,
+        "name": "hash",
+        "type_info": "Bytea",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "document_hash"
+          }
+        }
+      },
+      {
+        "ordinal": 4,
+        "name": "inputs",
+        "type_info": "Jsonb",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "inputs"
+          }
+        }
+      },
+      {
+        "ordinal": 5,
+        "name": "attempts",
+        "type_info": "Int4",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "attempts"
+          }
+        }
+      },
+      {
+        "ordinal": 6,
+        "name": "cancel_requested",
+        "type_info": "Bool",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "cancel_requested"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      null,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "07ee9755884b04fabbe32699055646211e7c31da3d823a470de4296ff41483cf"
+}

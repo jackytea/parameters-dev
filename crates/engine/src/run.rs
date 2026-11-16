@@ -13,10 +13,12 @@ use tokio_util::sync::CancellationToken;
 use crate::eval::{Outcome, Scope};
 use crate::event::{Event, RunReport, RunStatus, StepReport, StepStatus};
 use crate::node::{BoxFuture, Inputs, NodeContext, Values};
-use crate::plan::{Action, CompileError, GraphPlan, InputPlan, Plan, StepPlan, compile_plan};
+use crate::plan::{
+    Action, CompileError, GraphPlan, InputPlan, Plan, StepPlan, compile_plan, matches_type,
+};
 use crate::redact::Redactor;
 use crate::registry::Registry;
-use crate::secrets::SecretStore;
+use crate::secrets::{NoSecrets, SecretStore};
 
 pub const MAX_COMPOSITE_DEPTH: usize = 32;
 const MAX_RETRY_DELAY: Duration = Duration::from_secs(30);
@@ -29,15 +31,25 @@ pub struct EngineError(String);
 pub struct Engine {
     registry: Registry,
     http: reqwest::Client,
-    secrets: Arc<dyn SecretStore>,
     directory: PathBuf,
     retry_delay: Duration,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Clone)]
 pub struct RunControl {
     pub cancel: CancellationToken,
     pub events: Option<mpsc::Sender<Event>>,
+    pub secrets: Arc<dyn SecretStore>,
+}
+
+impl Default for RunControl {
+    fn default() -> Self {
+        Self {
+            cancel: CancellationToken::new(),
+            events: None,
+            secrets: Arc::new(NoSecrets),
+        }
+    }
 }
 
 pub(crate) struct Shared {
@@ -78,11 +90,7 @@ enum Attempt {
 }
 
 impl Engine {
-    pub fn new(
-        registry: Registry,
-        secrets: Arc<dyn SecretStore>,
-        directory: impl Into<PathBuf>,
-    ) -> Result<Self, EngineError> {
+    pub fn new(registry: Registry, directory: impl Into<PathBuf>) -> Result<Self, EngineError> {
         let http = reqwest::Client::builder()
             .user_agent(concat!("parameters/", env!("CARGO_PKG_VERSION")))
             .connect_timeout(Duration::from_secs(30))
@@ -91,7 +99,6 @@ impl Engine {
         Ok(Self {
             registry,
             http,
-            secrets,
             directory: directory.into(),
             retry_delay: DEFAULT_RETRY_DELAY,
         })
@@ -120,7 +127,7 @@ impl Engine {
             cancel: control.cancel,
             redactor: Redactor::default(),
             events: control.events,
-            secrets: Arc::clone(&self.secrets),
+            secrets: control.secrets,
             permits: Arc::new(Semaphore::new(
                 plan.concurrency.clamp(1, Semaphore::MAX_PERMITS),
             )),
@@ -221,21 +228,6 @@ fn root_inputs(
     } else {
         Err(errors)
     }
-}
-
-const fn matches_type(value: &Value, value_type: ValueType) -> bool {
-    matches!(
-        (value_type, value),
-        (ValueType::Any, _)
-            | (
-                ValueType::Text | ValueType::Path | ValueType::Secret,
-                Value::String(_)
-            )
-            | (ValueType::Number, Value::Number(_))
-            | (ValueType::Boolean, Value::Bool(_))
-            | (ValueType::List, Value::Array(_))
-            | (ValueType::Object, Value::Object(_))
-    )
 }
 
 fn run_graph(

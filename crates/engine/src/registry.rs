@@ -42,6 +42,13 @@ impl Registry {
     pub fn node(&self, node_type: &str) -> Option<&Arc<dyn Node>> {
         self.nodes.get(node_type)
     }
+
+    #[must_use]
+    pub fn is_privileged(&self, node_type: &str) -> bool {
+        self.nodes
+            .get(node_type)
+            .is_some_and(|node| node.privileged())
+    }
 }
 
 impl Catalog for Registry {
@@ -64,6 +71,21 @@ mod tests {
     fn built_in_node_types_are_valid_and_ports_are_unique() {
         let registry = Registry::builtins();
         assert_eq!(registry.node_types().len(), 8);
+        let privileged: Vec<&str> = registry
+            .node_types()
+            .into_iter()
+            .filter(|name| registry.is_privileged(name))
+            .collect();
+        assert_eq!(
+            privileged,
+            [
+                "file.list",
+                "file.read",
+                "file.write",
+                "process.run",
+                "shell.run"
+            ]
+        );
         for name in registry.node_types() {
             assert!(is_valid_node_type(name), "{name}");
             let signature = registry.signature(name).unwrap();

@@ -1,7 +1,18 @@
+mod api;
+mod failure;
+#[cfg(feature = "server")]
+mod server;
+
 use dioxus::prelude::*;
 
 const THEME: Asset = asset!("/assets/theme.css");
 
+#[cfg(feature = "server")]
+fn main() -> std::process::ExitCode {
+    server::main()
+}
+
+#[cfg(not(feature = "server"))]
 fn main() {
     dioxus::launch(App);
 }

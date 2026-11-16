@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO approvals (workflow_id, document_hash, approved_by)\n               VALUES ($1, $2, $3)\n               ON CONFLICT (workflow_id, document_hash) DO NOTHING",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea",
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5001dfeba5d97dd9a34a5d8f99f7849b137b4b42b96c05dfc39423d44df3e003"
+}

@@ -36,8 +36,8 @@ pub(crate) fn run(args: &[String]) -> Result<ExitCode, Failure> {
     };
     let directory = std::env::current_dir()
         .map_err(|error| Failure::Io(format!("cannot read the current directory: {error}")))?;
-    let engine = Engine::new(registry, Arc::new(EnvironmentSecrets), directory)
-        .map_err(|error| Failure::Io(error.to_string()))?;
+    let engine =
+        Engine::new(registry, directory).map_err(|error| Failure::Io(error.to_string()))?;
     let plan = engine
         .compile(&workflow)
         .map_err(|error| Failure::Io(error.to_string()))?;
@@ -51,6 +51,7 @@ pub(crate) fn run(args: &[String]) -> Result<ExitCode, Failure> {
         let printer = tokio::spawn(print_events(receiver));
         let control = RunControl {
             events: Some(sender),
+            secrets: Arc::new(EnvironmentSecrets),
             ..RunControl::default()
         };
         let cancel = control.cancel.clone();

@@ -12,14 +12,25 @@ workspace = true
 
 [dependencies]
 dioxus.workspace = true
+parameters-api.workspace = true
 parameters-core.workspace = true
 parameters-lang.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 parameters-service = { workspace = true, optional = true }
 parameters-mcp = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true, features = ["net", "signal"] }
+tracing = { workspace = true, optional = true }
 
 [features]
 default = []
 web = ["dioxus/web"]
 desktop = ["dioxus/desktop"]
 mobile = ["dioxus/mobile"]
-server = ["dioxus/server", "dep:parameters-service", "dep:parameters-mcp"]
+server = [
+    "dioxus/server",
+    "dep:parameters-service",
+    "dep:parameters-mcp",
+    "dep:tokio",
+    "dep:tracing",
+]

@@ -18,5 +18,24 @@ services:
       timeout: 5s
       retries: 10
 
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      PGHOST: database
+      PGDATABASE: ${POSTGRES_DB:?set POSTGRES_DB in .env}
+      PGUSER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      PARAMETERS_ENCRYPTION_KEY: ${PARAMETERS_ENCRYPTION_KEY:?set PARAMETERS_ENCRYPTION_KEY in .env}
+      PARAMETERS_MAX_RUNS: ${PARAMETERS_MAX_RUNS:-4}
+    ports:
+      - "127.0.0.1:${PARAMETERS_PORT:-8080}:8080"
+    volumes:
+      - workspace:/workspace
+
 volumes:
   database:
+  workspace:

@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "DELETE FROM node_definitions\n                       WHERE owner_id = $1 AND type_name = $2 AND version = $3",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Text",
+        "Int4"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7f62e3e7489978242780e246b7da4765aa04cdb48941c504fd1c067f23cd8938"
+}

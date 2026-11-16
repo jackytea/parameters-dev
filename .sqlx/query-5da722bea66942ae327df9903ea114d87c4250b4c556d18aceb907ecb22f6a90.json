@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "INSERT INTO run_logs (run_id, path, message)\n                   SELECT $1, * FROM UNNEST($2::text[], $3::text[])",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "TextArray",
+        "TextArray"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5da722bea66942ae327df9903ea114d87c4250b4c556d18aceb907ecb22f6a90"
+}

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use parameters_core::expr;
@@ -9,7 +9,7 @@ use parameters_core::{
 use serde_json::Value;
 
 use crate::eval::{Compiled, Root, compile};
-use crate::node::Node;
+use crate::node::{Node, Values};
 use crate::registry::Registry;
 
 pub const DEFAULT_CONCURRENCY: u32 = 8;
@@ -38,6 +38,55 @@ impl Plan {
             )
         })
     }
+
+    #[must_use]
+    pub fn check_inputs(&self, provided: &Values) -> Vec<String> {
+        let mut errors = Vec::new();
+        for input in &self.root.inputs {
+            let name = &input.name;
+            match (provided.get(name), input.value_type) {
+                (Some(_), ValueType::Secret) => errors.push(format!(
+                    "the secret input `{name}` cannot be given directly; it is read from the secret store"
+                )),
+                (None, ValueType::Secret) => {}
+                (Some(value), value_type) if !matches_type(value, value_type) => {
+                    errors.push(format!("the input `{name}` must be {value_type}"));
+                }
+                (None, _) if input.default.is_none() => {
+                    errors.push(format!("the input `{name}` is required"));
+                }
+                _ => {}
+            }
+        }
+        let known: HashSet<&str> = self
+            .root
+            .inputs
+            .iter()
+            .map(|input| input.name.as_str())
+            .collect();
+        errors.extend(
+            provided
+                .keys()
+                .filter(|name| !known.contains(name.as_str()))
+                .map(|name| format!("the workflow has no input `{name}`")),
+        );
+        errors
+    }
+}
+
+pub(crate) const fn matches_type(value: &Value, value_type: ValueType) -> bool {
+    matches!(
+        (value_type, value),
+        (ValueType::Any, _)
+            | (
+                ValueType::Text | ValueType::Path | ValueType::Secret,
+                Value::String(_)
+            )
+            | (ValueType::Number, Value::Number(_))
+            | (ValueType::Boolean, Value::Bool(_))
+            | (ValueType::List, Value::Array(_))
+            | (ValueType::Object, Value::Object(_))
+    )
 }
 
 pub(crate) struct GraphPlan {

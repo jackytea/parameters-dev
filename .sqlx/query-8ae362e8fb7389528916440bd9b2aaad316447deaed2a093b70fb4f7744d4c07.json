@@ -1,0 +1,24 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT EXISTS (\n                   SELECT 1 FROM approvals WHERE workflow_id = $1 AND document_hash = $2\n               ) AS \"approved!\"",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "approved!",
+        "type_info": "Bool",
+        "origin": "Expression"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Bytea"
+      ]
+    },
+    "nullable": [
+      null
+    ]
+  },
+  "hash": "8ae362e8fb7389528916440bd9b2aaad316447deaed2a093b70fb4f7744d4c07"
+}

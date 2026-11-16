@@ -1,0 +1,8 @@
+/target
+/.git
+/.env
+/.env.*
+/prd.md
+/plan.md
+*.pem
+*.key

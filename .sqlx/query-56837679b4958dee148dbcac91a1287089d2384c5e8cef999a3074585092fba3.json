@@ -1,0 +1,29 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "UPDATE runs\n               SET cancel_requested = cancel_requested OR status IN ('queued', 'running'),\n                   status = CASE WHEN status = 'queued' THEN 'cancelled' ELSE status END,\n                   finished_at = CASE WHEN status = 'queued' THEN now() ELSE finished_at END\n               WHERE owner_id = $1 AND id = $2\n               RETURNING status",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "status",
+        "type_info": "Text",
+        "origin": {
+          "Table": {
+            "table": "runs",
+            "name": "status"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid",
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "56837679b4958dee148dbcac91a1287089d2384c5e8cef999a3074585092fba3"
+}

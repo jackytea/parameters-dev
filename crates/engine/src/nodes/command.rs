@@ -13,6 +13,10 @@ const ERROR_OUTPUT_PREVIEW: usize = 2_000;
 pub(crate) struct ShellRun;
 
 impl Node for ShellRun {
+    fn privileged(&self) -> bool {
+        true
+    }
+
     fn signature(&self) -> Signature {
         Signature {
             inputs: vec![
@@ -45,6 +49,10 @@ impl Node for ShellRun {
 pub(crate) struct ProcessRun;
 
 impl Node for ProcessRun {
+    fn privileged(&self) -> bool {
+        true
+    }
+
     fn signature(&self) -> Signature {
         Signature {
             inputs: vec![

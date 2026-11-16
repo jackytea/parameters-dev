@@ -11,6 +11,7 @@ homepage = "https://parameters.dev"
 publish = false
 
 [workspace.dependencies]
+parameters-api = { path = "crates/api" }
 parameters-core = { path = "crates/core" }
 parameters-lang = { path = "crates/lang" }
 parameters-engine = { path = "crates/engine" }
@@ -27,6 +28,11 @@ thiserror = "2.0.21"
 tokio = { version = "1.54.1", features = ["fs", "io-util", "process", "rt-multi-thread", "sync", "time"] }
 tokio-util = "0.7.20"
 reqwest = { version = "0.12.28", default-features = false, features = ["rustls-tls"] }
+ring = "0.17.14"
+sqlx = { version = "0.9.0", default-features = false, features = ["json", "macros", "migrate", "postgres", "runtime-tokio", "time", "tls-rustls-ring-webpki", "uuid"] }
+time = { version = "0.3.55", features = ["serde-well-known"] }
+tracing = "0.1.44"
+uuid = { version = "1.29.2", default-features = false, features = ["serde", "std"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

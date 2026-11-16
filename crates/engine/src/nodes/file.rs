@@ -7,6 +7,10 @@ use crate::node::{BoxFuture, Inputs, Node, NodeContext, NodeError, Values};
 pub(crate) struct FileRead;
 
 impl Node for FileRead {
+    fn privileged(&self) -> bool {
+        true
+    }
+
     fn signature(&self) -> Signature {
         Signature {
             inputs: vec![Port::required("path", ValueType::Path)],
@@ -43,6 +47,10 @@ impl Node for FileRead {
 pub(crate) struct FileWrite;
 
 impl Node for FileWrite {
+    fn privileged(&self) -> bool {
+        true
+    }
+
     fn signature(&self) -> Signature {
         Signature {
             inputs: vec![
@@ -75,6 +83,10 @@ impl Node for FileWrite {
 pub(crate) struct FileList;
 
 impl Node for FileList {
+    fn privileged(&self) -> bool {
+        true
+    }
+
     fn signature(&self) -> Signature {
         Signature {
             inputs: vec![Port::required("directory", ValueType::Path)],
