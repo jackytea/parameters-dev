@@ -1,0 +1,17 @@
+/target
+
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+.DS_Store
+Thumbs.db
+
+/.vscode/*
+!/.vscode/extensions.json
+/.idea
+
+/prd.md
+/plan.md

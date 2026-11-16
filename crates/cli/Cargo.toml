@@ -1,0 +1,20 @@
+[package]
+name = "parameters-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "parameters"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+parameters-core.workspace = true
+parameters-lang.workspace = true
+parameters-engine.workspace = true
