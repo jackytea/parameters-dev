@@ -1,0 +1,23 @@
+{
+  "parameters": 1,
+  "name": "Definitions",
+  "steps": [
+    { "id": "go", "uses": "acme.first" },
+    { "id": "broken", "uses": "log.write", "with": { "message": { "$expr": "\"unclosed {brace\"" } } },
+    { "id": "syntax", "uses": "log.write", "with": { "message": { "$expr": "go.done ==" } } }
+  ],
+  "definitions": {
+    "acme.first": {
+      "steps": [{ "id": "next", "uses": "acme.second" }]
+    },
+    "acme.second": {
+      "steps": [{ "id": "back", "uses": "acme.first" }]
+    },
+    "http.request": {
+      "inputs": [{ "name": "url", "type": "text" }]
+    },
+    "standalone": {
+      "inputs": [{ "name": "for", "type": "text" }]
+    }
+  }
+}

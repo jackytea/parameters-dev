@@ -1,0 +1,8 @@
+error[P0101] /inputs/1/name: `Region` is not a valid name: use lowercase letters, digits and underscores, starting with a letter or underscore; did you mean `region`?
+error[P0102] /steps/0/id: `timeout` is a reserved keyword; did you mean `timeout_step`?
+error[P0101] /steps/1/id: `Build-Site` is not a valid name: use lowercase letters, digits and underscores, starting with a letter or underscore; did you mean `build_site`?
+error[P0104] /steps/2/id: `site` is already used by another input
+error[P0104] /steps/4/id: `copy` is already used by another step
+error[P0102] /steps/5/with/when: `when` is a reserved keyword; did you mean `when_value`?
+error[P0203] /steps/5/with/when: `shell.run` has no field `when`
+error[P0104] /outputs/1/name: `done` is already used by another output

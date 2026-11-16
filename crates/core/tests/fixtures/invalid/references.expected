@@ -1,0 +1,11 @@
+error[P0302] /steps/0/with/ref (0..6): unknown reference `brnach`; did you mean `branch`?
+error[P0305] /steps/1/after/0: unknown step `chekout`; did you mean `checkout`?
+error[P0305] /steps/1/after/1: `branch` is an input, not a step, so nothing can wait for it
+error[P0303] /steps/1/with/directory (9..12): `checkout` has no output `pth`; did you mean `path`?
+error[P0304] /steps/2/with/message (9..13): `branch` is text and has no field `name`
+error[P0305] /steps/3/when (0..6): `branch` is an input, not a step, so it has no state
+error[P0305] /steps/3/when (20..27): unknown step `missing`
+error[P0201] /steps/4/uses: unknown node type `shell.rnu`; did you mean `shell.run`?
+error[P0103] /steps/5/uses: `shell` is not a valid node type: use a qualified name such as `http.request`
+error[P0203] /steps/6/with/comand: `shell.run` has no field `comand`; did you mean `command`?
+error[P0204] /steps/6/with: `shell.run` needs the field `command` (text)

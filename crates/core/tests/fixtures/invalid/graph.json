@@ -1,0 +1,16 @@
+{
+  "parameters": 1,
+  "name": "",
+  "concurrency": 0,
+  "steps": [
+    { "id": "a", "uses": "log.write", "after": ["c"], "with": { "message": "a" } },
+    { "id": "b", "uses": "log.write", "with": { "message": { "$expr": "\"{a.missing}\"" } }, "retry": 1000 },
+    { "id": "c", "uses": "log.write", "after": ["b"], "with": { "message": "c" } },
+    { "id": "d", "uses": "log.write", "after": ["c"], "timeout": "0s", "with": { "message": "downstream of the cycle" } },
+    { "id": "e", "uses": "log.write", "after": ["e"], "with": { "message": "waits for itself" } }
+  ],
+  "layout": {
+    "a": [0, 0],
+    "ghost": [280, 0]
+  }
+}

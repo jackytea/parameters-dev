@@ -14,6 +14,7 @@ Parameters is a graph-based, English-like workflow automation language written i
 - `cargo clippy --workspace --all-targets --features parameters-app/server -- -D warnings` — lint
 - `cargo clippy -p parameters-app --target wasm32-unknown-unknown --features web -- -D warnings` — lint the web build
 - `cargo fmt --all` — format
+- `UPDATE_GOLDEN=1 cargo test -p parameters-core` — regenerate golden files (`crates/core/tests/fixtures`, `schema/workflow.v1.json`); review the diff before committing
 - `cargo deny check` — advisories, licenses, sources
 - `dx serve --package parameters-app --platform web` — run the app
 - `docker compose up -d` — start PostgreSQL (needs `.env`, see `.env.example`)
@@ -38,6 +39,6 @@ Dependencies only point toward `core`:
 - All I/O is async; never block the runtime. Pick the best algorithm and data structure for each job, and avoid work that grows quadratically with user-sized input.
 - Keep dependencies minimal. Every new crate needs a reason over writing the code by hand; add it to `[workspace.dependencies]`.
 - Never commit secrets, `.env` files or personal data. Configuration is server-only and never returned to clients.
-- Language keywords are reserved; names may not use them.
+- Language keywords are reserved (`KEYWORDS` in `crates/core/src/name.rs`); names may not use them.
 - Conventional Commits with a scope, such as `feat(core): ...`. Types: `feat`, `fix`, `docs`, `chore`, `style`, `refactor`, `ci`, `test`, `revert`, `perf`. No AI attribution lines in commits or pull requests.
 - UI: square edges (no border radius), theme tokens in CSS custom properties, light and dark modes.

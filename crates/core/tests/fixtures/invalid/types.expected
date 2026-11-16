@@ -1,0 +1,10 @@
+error[P0206] /inputs/0/default: secret inputs cannot have a default, because the secret would be stored in the workflow
+error[P0205] /inputs/1/default: expected number but found text
+error[P0205] /steps/0/with/command: expected text but found number
+error[P0205] /steps/1/with/command: null is not a supported value; remove the field instead
+error[P0207] /steps/2/with/body/nested/$ref: keys starting with `$` are reserved, so `$ref` cannot be used
+error[P0205] /steps/3/with/message (8..12): a list cannot be placed inside text
+error[P0205] /steps/4/when (0..5): expected boolean but found number
+error[P0205] /steps/5/when (0..3): expected number but found text
+error[P0206] /steps/6/with/token: secret fields need `secret "NAME"` or a secret input, so the secret is never stored in the workflow
+error[P0206] /steps/7/with/token (0..16): expected a secret but found text; use `secret "NAME"` or a secret input

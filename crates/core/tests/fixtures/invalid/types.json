@@ -1,0 +1,24 @@
+{
+  "parameters": 1,
+  "name": "Types",
+  "inputs": [
+    { "name": "token", "type": "secret", "default": "hunter2" },
+    { "name": "count", "type": "number", "default": "three" },
+    { "name": "tags", "type": "list" }
+  ],
+  "steps": [
+    { "id": "number_as_text", "uses": "shell.run", "with": { "command": 42 } },
+    { "id": "null_value", "uses": "shell.run", "with": { "command": null } },
+    { "id": "reserved_key", "uses": "http.request", "with": { "url": "https://example.com", "body": { "nested": { "$ref": "x" } } } },
+    { "id": "list_in_text", "uses": "log.write", "with": { "message": { "$expr": "\"tags: {tags}\"" } } },
+    { "id": "number_condition", "uses": "log.write", "when": "count", "with": { "message": "x" } },
+    { "id": "ordering_text", "uses": "log.write", "when": "\"a\" < count", "with": { "message": "x" } },
+    { "id": "inline_secret", "uses": "netlify.upload", "with": { "token": "plain-text" } },
+    { "id": "text_secret", "uses": "netlify.upload", "with": { "token": { "$expr": "\"Bearer {count}\"" } } }
+  ],
+  "definitions": {
+    "netlify.upload": {
+      "inputs": [{ "name": "token", "type": "secret" }]
+    }
+  }
+}

@@ -1,0 +1,8 @@
+error[P0208] /name: the workflow needs a name
+error[P0208] /concurrency: concurrency must be between 1 and 1024, not 0
+error[P0208] /steps/1/retry: a step can be retried at most 100 times
+error[P0303] /steps/1/with/message (4..11): `a` has no output `missing`
+error[P0208] /steps/3/timeout: the timeout must be longer than zero
+error[P0401] /steps/0: steps `a`, `b` and `c` depend on each other, so none of them could start
+error[P0401] /steps/4: step `e` depends on itself, so it could never start
+warning[P0501] /layout/ghost: the layout has a position for `ghost`, which is not a step

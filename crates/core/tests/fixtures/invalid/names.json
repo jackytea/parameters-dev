@@ -1,0 +1,20 @@
+{
+  "parameters": 1,
+  "name": "Names",
+  "inputs": [
+    { "name": "site", "type": "text" },
+    { "name": "Region", "type": "text", "default": "eu" }
+  ],
+  "steps": [
+    { "id": "timeout", "uses": "log.write", "with": { "message": "reserved id" } },
+    { "id": "Build-Site", "uses": "log.write", "with": { "message": "invalid id" } },
+    { "id": "site", "uses": "log.write", "with": { "message": "clashes with an input" } },
+    { "id": "copy", "uses": "log.write", "with": { "message": "first" } },
+    { "id": "copy", "uses": "log.write", "with": { "message": "second" } },
+    { "id": "fields", "uses": "shell.run", "with": { "command": "ls", "when": "keyword field" } }
+  ],
+  "outputs": [
+    { "name": "done", "value": true },
+    { "name": "done", "value": false }
+  ]
+}

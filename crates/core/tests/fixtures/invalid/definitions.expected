@@ -1,0 +1,6 @@
+error[P0202] /definitions/http.request: `http.request` is a built-in node and cannot be redefined
+error[P0103] /definitions/standalone: `standalone` is not a valid node type: use a qualified name such as `acme.deploy`
+error[P0102] /definitions/standalone/inputs/0/name: `for` is a reserved keyword; did you mean `for_value`?
+error[P0402] /definitions/acme.first: definitions `acme.first` and `acme.second` use each other, so none of them could finish
+error[P0301] /steps/1/with/message (10..17): unclosed `{` in text: close it with `}` or write `\{`
+error[P0301] /steps/2/with/message (10..10): expected a value but the expression ended

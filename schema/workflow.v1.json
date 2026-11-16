@@ -1,0 +1,251 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Workflow",
+  "type": "object",
+  "properties": {
+    "concurrency": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "format": "uint32",
+      "minimum": 0
+    },
+    "definitions": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/Definition"
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Input"
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/Position"
+      }
+    },
+    "name": {
+      "type": "string"
+    },
+    "note": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Output"
+      }
+    },
+    "parameters": {
+      "type": "integer",
+      "format": "uint32",
+      "minimum": 0
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/Step"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "parameters",
+    "name"
+  ],
+  "$defs": {
+    "Definition": {
+      "type": "object",
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Input"
+          }
+        },
+        "layout": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/Position"
+          }
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Output"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Step"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Duration": {
+      "type": "string",
+      "pattern": "^[0-9]+(ms|s|m|h)$"
+    },
+    "FieldValue": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "$expr": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "required": [
+            "$expr"
+          ]
+        },
+        {}
+      ]
+    },
+    "Input": {
+      "type": "object",
+      "properties": {
+        "default": true,
+        "name": {
+          "type": "string"
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "type": {
+          "$ref": "#/$defs/ValueType"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "type"
+      ]
+    },
+    "Output": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValueType"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "value": {
+          "$ref": "#/$defs/FieldValue"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "value"
+      ]
+    },
+    "Position": {
+      "type": "array",
+      "items": {
+        "type": "integer"
+      },
+      "maxItems": 2,
+      "minItems": 2
+    },
+    "Step": {
+      "type": "object",
+      "properties": {
+        "after": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "type": "string"
+        },
+        "note": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "retry": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0
+        },
+        "timeout": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Duration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "uses": {
+          "type": "string"
+        },
+        "when": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "with": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/FieldValue"
+          }
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "uses"
+      ]
+    },
+    "ValueType": {
+      "type": "string",
+      "enum": [
+        "text",
+        "number",
+        "boolean",
+        "list",
+        "object",
+        "path",
+        "secret",
+        "any"
+      ]
+    }
+  }
+}

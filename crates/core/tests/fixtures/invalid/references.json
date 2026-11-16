@@ -1,0 +1,16 @@
+{
+  "parameters": 1,
+  "name": "References",
+  "inputs": [
+    { "name": "branch", "type": "text" }
+  ],
+  "steps": [
+    { "id": "checkout", "uses": "git.clone", "with": { "repository": "https://example.com/repo", "ref": { "$expr": "brnach" } } },
+    { "id": "build", "uses": "shell.run", "after": ["chekout", "branch"], "with": { "command": "make", "directory": { "$expr": "checkout.pth" } } },
+    { "id": "inspect", "uses": "log.write", "with": { "message": { "$expr": "\"{branch.name}\"" } } },
+    { "id": "state", "uses": "log.write", "when": "branch succeeded or missing failed", "with": { "message": "x" } },
+    { "id": "typo", "uses": "shell.rnu", "with": { "command": "ls" } },
+    { "id": "unqualified", "uses": "shell", "with": { "command": "ls" } },
+    { "id": "fields", "uses": "shell.run", "with": { "comand": "ls" } }
+  ]
+}
