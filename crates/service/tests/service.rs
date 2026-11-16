@@ -624,3 +624,42 @@ async fn the_node_library_saves_renames_and_imports(pool: PgPool) {
         Err(ApiError::NotFound { .. })
     ));
 }
+
+#[sqlx::test(migrations = "../store/migrations")]
+async fn open_editors_see_changes_as_they_are_saved(pool: PgPool) {
+    let service = service(&pool).await;
+    let background = service.run_in_background().await.unwrap();
+    let created = service
+        .create_workflow(&UI, &text("workflow \"Live\"\n"))
+        .await
+        .unwrap();
+    let id = created.record.summary.id;
+    let mut watch = service.watch_workflow(&UI, id).await.unwrap();
+    let first = watch.next().await.unwrap().unwrap();
+    assert_eq!(first.summary.version, 1);
+    service
+        .update_workflow(
+            &MCP,
+            id,
+            1,
+            &text("workflow \"Live\"\n  note \"Edited by an agent\"\n"),
+        )
+        .await
+        .unwrap();
+    let edited = tokio::time::timeout(PATIENCE, watch.next())
+        .await
+        .unwrap()
+        .unwrap()
+        .unwrap();
+    assert_eq!(edited.summary.version, 2);
+    assert_eq!(edited.summary.updated_via, Via::Mcp);
+    assert_eq!(edited.document.note.as_deref(), Some("Edited by an agent"));
+    service.delete_workflow(&UI, id).await.unwrap();
+    assert!(
+        tokio::time::timeout(PATIENCE, watch.next())
+            .await
+            .unwrap()
+            .is_none()
+    );
+    background.shutdown().await;
+}

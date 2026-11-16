@@ -2,6 +2,7 @@ use parameters_api::{Via, WorkflowSummary};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
+use crate::notify::{Notification, send};
 use crate::{Cursor, Result, Store, Versioned, named};
 
 pub struct NewWorkflow<'a> {
@@ -129,6 +130,7 @@ impl Store {
         update: WorkflowUpdate<'_>,
     ) -> Result<Versioned<WorkflowSummary>> {
         let workflow = update.workflow;
+        let mut transaction = self.pool.begin().await?;
         let updated = sqlx::query_as!(
             Row,
             r#"UPDATE workflows
@@ -144,11 +146,14 @@ impl Store {
             workflow.hash.as_slice(),
             workflow.via.name()
         )
-        .fetch_optional(&self.pool)
+        .fetch_optional(&mut *transaction)
         .await?;
         if let Some(row) = updated {
+            send(&mut *transaction, Notification::WorkflowChanged(id)).await?;
+            transaction.commit().await?;
             return Ok(Versioned::Done(row.summary()?));
         }
+        transaction.rollback().await?;
         let current = sqlx::query_scalar!(
             "SELECT version FROM workflows WHERE owner_id = $1 AND id = $2",
             owner,
@@ -160,14 +165,21 @@ impl Store {
     }
 
     pub async fn delete_workflow(&self, owner: Uuid, id: Uuid) -> Result<bool> {
-        let result = sqlx::query!(
+        let mut transaction = self.pool.begin().await?;
+        let deleted = sqlx::query!(
             "DELETE FROM workflows WHERE owner_id = $1 AND id = $2",
             owner,
             id
         )
-        .execute(&self.pool)
-        .await?;
-        Ok(result.rows_affected() > 0)
+        .execute(&mut *transaction)
+        .await?
+        .rows_affected()
+            > 0;
+        if deleted {
+            send(&mut *transaction, Notification::WorkflowChanged(id)).await?;
+        }
+        transaction.commit().await?;
+        Ok(deleted)
     }
 
     pub async fn workflows_using_node(

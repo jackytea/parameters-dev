@@ -33,6 +33,8 @@ cargo test --workspace --features parameters-app/server
 dx serve --package parameters-app --platform web
 ```
 
+`dx serve` needs the same environment as the server (see below), for example `DATABASE_URL` and `PARAMETERS_ENCRYPTION_KEY` exported from `.env`.
+
 ## The language
 
 Workflows are written in `.parameters` files or as JSON, and either one converts to the other. See the [language reference](docs/language.md) for the syntax and a full example. The JSON format is described by [schema/workflow.v1.json](schema/workflow.v1.json).
@@ -45,6 +47,22 @@ cargo run -p parameters-cli -- run examples/hello.parameters --input name=Ada
 ```
 
 `run` prints each step as it starts and finishes, then the workflow's outputs as JSON. Steps run in parallel unless one depends on another. Secrets are read from environment variables named `PARAMETERS_SECRET_<NAME>` and are masked in everything the run prints. See [examples/](examples) for workflows you can run locally.
+
+## The app
+
+Open <http://localhost:8080>. The app has four sections:
+
+- **Workflows**: create, import (text or JSON, pasted or from a file), duplicate and delete workflows.
+- **Editor**: the code and the graph side by side, kept in sync.
+  - Build in the graph: add steps, drag a step's right-hand port onto another step to make it wait, click a connection to remove it, and edit the selected step in the inspector.
+  - Or write the workflow as text. While the text has a syntax error, the graph is read-only.
+  - Changes saved elsewhere, including by an AI agent, appear in open editors as soon as they are saved. If you have unsaved changes, you choose which version to keep.
+  - Before a workflow that runs commands or uses files can run, the editor shows what it can do and asks you to approve that version.
+  - Run a workflow and watch each step's status on the graph, with its outputs and log below.
+- **Runs**: every run, with live status, outputs and logs, and a way to cancel.
+- **Nodes** and **Secrets**: the custom node library, including imports that resolve name clashes, and encrypted secrets.
+
+Light and dark themes follow the system unless you pick one. On a narrow screen, switch between the code and the graph.
 
 ## The server
 

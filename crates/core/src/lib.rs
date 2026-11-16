@@ -1,6 +1,7 @@
 pub mod catalog;
 pub mod diagnostic;
 pub mod document;
+pub mod edit;
 pub mod expr;
 pub mod graph;
 pub mod hash;

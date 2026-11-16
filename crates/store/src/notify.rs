@@ -8,12 +8,14 @@ pub(crate) const CHANNEL: &str = "parameters";
 const QUEUE: &str = "queue";
 const RUN: &str = "run:";
 const CANCEL: &str = "cancel:";
+const WORKFLOW: &str = "workflow:";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Notification {
     Queued,
     RunChanged(Uuid),
     CancelRequested(Uuid),
+    WorkflowChanged(Uuid),
     Resync,
 }
 
@@ -23,6 +25,7 @@ impl Notification {
             Self::Queued | Self::Resync => QUEUE.to_owned(),
             Self::RunChanged(id) => format!("{RUN}{id}"),
             Self::CancelRequested(id) => format!("{CANCEL}{id}"),
+            Self::WorkflowChanged(id) => format!("{WORKFLOW}{id}"),
         }
     }
 
@@ -32,6 +35,9 @@ impl Notification {
         }
         if let Some(id) = payload.strip_prefix(RUN) {
             return Uuid::try_parse(id).ok().map(Self::RunChanged);
+        }
+        if let Some(id) = payload.strip_prefix(WORKFLOW) {
+            return Uuid::try_parse(id).ok().map(Self::WorkflowChanged);
         }
         payload
             .strip_prefix(CANCEL)
@@ -90,6 +96,7 @@ mod tests {
             Notification::Queued,
             Notification::RunChanged(id),
             Notification::CancelRequested(id),
+            Notification::WorkflowChanged(id),
         ] {
             assert_eq!(
                 Notification::parse(&notification.payload()),

@@ -45,6 +45,18 @@ pub(crate) async fn update_workflow(
         .await?)
 }
 
+#[get("/api/workflows/{id}/events")]
+pub(crate) async fn watch_workflow(id: Uuid) -> Result<ServerEvents<WorkflowRecord>, Failure> {
+    let mut watch = service()?.watch_workflow(&ui(), id).await?;
+    Ok(ServerEvents::new(move |mut events| async move {
+        while let Some(Ok(record)) = watch.next().await {
+            if events.send(record).await.is_err() {
+                return;
+            }
+        }
+    }))
+}
+
 #[delete("/api/workflows/{id}")]
 pub(crate) async fn delete_workflow(id: Uuid) -> Result<(), Failure> {
     Ok(service()?.delete_workflow(&ui(), id).await?)

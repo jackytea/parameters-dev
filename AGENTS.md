@@ -20,7 +20,8 @@ Parameters is a graph-based, English-like workflow automation language written i
 - `cargo run -p parameters-cli -- check|fmt|convert|run <file>` — the `parameters` command line tool
 - `cargo deny check` — advisories, licenses, sources
 - `cargo sqlx prepare --workspace -- --all-targets --features parameters-app/server` — regenerate `.sqlx` after changing a query or migration (needs `sqlx-cli` 0.9 and a migrated `DATABASE_URL`); commit the result, CI checks it
-- `dx serve --package parameters-app --platform web` — run the app
+- `dx serve --package parameters-app --platform web` — run the app with hot reload (needs `DATABASE_URL` and `PARAMETERS_ENCRYPTION_KEY`)
+- `dx bundle --package parameters-app --platform web --release` — build the server and the web client, as the Dockerfile does
 - `docker compose up -d` — start PostgreSQL and the server on `127.0.0.1:8080` (needs `.env`, see `.env.example`); `docker compose up -d database` starts only PostgreSQL
 
 ## Crates
@@ -56,3 +57,5 @@ Dependencies only point toward `core`:
 - Local mode listens on loopback only and rejects requests whose `Host` or `Origin` is not localhost.
 - Conventional Commits with a scope, such as `feat(core): ...`. Types: `feat`, `fix`, `docs`, `chore`, `style`, `refactor`, `ci`, `test`, `revert`, `perf`. No AI attribution lines in commits or pull requests.
 - UI: square edges (no border radius), theme tokens in CSS custom properties, light and dark modes.
+- UI data loads on the client only (`on_client()` in `crates/app/src/ui/common.rs`), so the server-rendered page and the first client render match. Live views use the server-sent event endpoints and reconnect after a pause.
+- The editor keeps one `EditorState` (`crates/app/src/ui/editor/mod.rs`). Graph and inspector edits go through `parameters_core::edit` and reprint the text; text edits replace the workflow when they parse. Keep editing rules in `core::edit`, where they are tested.

@@ -1,17 +1,15 @@
-use std::time::Duration;
-
 use parameters_api::{ApiError, Page, RunState, RunSummary, RunUpdate};
 use parameters_store::{Cursor, NewRun, Notification};
 use serde_json::{Map, Value};
-use tokio::sync::broadcast::{self, error::RecvError};
+use tokio::sync::broadcast;
 use uuid::Uuid;
 
+use crate::hub::changed;
 use crate::page::PageRequest;
 use crate::workflows::parse_stored;
 use crate::{Actor, Result, Service, internal};
 
 const LOG_PAGE: i64 = 1_000;
-const QUIET_REFRESH: Duration = Duration::from_secs(30);
 
 impl Service {
     pub async fn start_run(
@@ -174,22 +172,7 @@ impl RunWatch {
     }
 
     async fn wait(&mut self) {
-        let quiet = tokio::time::sleep(QUIET_REFRESH);
-        tokio::pin!(quiet);
-        loop {
-            tokio::select! {
-                () = &mut quiet => return,
-                received = self.notifications.recv() => match received {
-                    Ok(Notification::RunChanged(id)) if id == self.id => return,
-                    Ok(Notification::Resync) | Err(RecvError::Lagged(_)) => return,
-                    Ok(_) => {}
-                    Err(RecvError::Closed) => {
-                        quiet.as_mut().await;
-                        return;
-                    }
-                },
-            }
-        }
+        changed(&mut self.notifications, Notification::RunChanged(self.id)).await;
     }
 }
 

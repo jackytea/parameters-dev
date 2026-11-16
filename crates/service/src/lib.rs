@@ -26,6 +26,7 @@ pub use cipher::{EncryptionKey, KeyError};
 pub use config::{Config, ConfigError};
 pub use runs::RunWatch;
 pub use worker::Background;
+pub use workflows::WorkflowWatch;
 
 use crate::cipher::Cipher;
 use crate::hub::Hub;

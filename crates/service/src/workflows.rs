@@ -4,9 +4,13 @@ use parameters_api::{
 };
 use parameters_core::layout::complete_layouts;
 use parameters_core::{MergeOutcome, Workflow, from_json, to_json, validate};
-use parameters_store::{Cursor, NewWorkflow, StoredWorkflow, Versioned, WorkflowUpdate, hex};
+use parameters_store::{
+    Cursor, NewWorkflow, Notification, StoredWorkflow, Versioned, WorkflowUpdate, hex,
+};
+use tokio::sync::broadcast;
 use uuid::Uuid;
 
+use crate::hub::changed;
 use crate::library::{WithLibrary, include_library};
 use crate::page::PageRequest;
 use crate::review::inspect;
@@ -111,6 +115,19 @@ impl Service {
         }
     }
 
+    pub async fn watch_workflow(&self, actor: &Actor, id: Uuid) -> Result<WorkflowWatch> {
+        let notifications = self.inner.hub.subscribe();
+        self.stored_workflow(actor, id).await?;
+        Ok(WorkflowWatch {
+            service: self.clone(),
+            actor: *actor,
+            id,
+            version: None,
+            notifications,
+            done: false,
+        })
+    }
+
     pub async fn delete_workflow(&self, actor: &Actor, id: Uuid) -> Result<()> {
         if self
             .store()
@@ -207,6 +224,42 @@ impl Service {
             hash,
             merged,
         })
+    }
+}
+
+pub struct WorkflowWatch {
+    service: Service,
+    actor: Actor,
+    id: Uuid,
+    version: Option<i32>,
+    notifications: broadcast::Receiver<Notification>,
+    done: bool,
+}
+
+impl WorkflowWatch {
+    pub async fn next(&mut self) -> Option<Result<WorkflowRecord>> {
+        while !self.done {
+            if self.version.is_some() {
+                changed(
+                    &mut self.notifications,
+                    Notification::WorkflowChanged(self.id),
+                )
+                .await;
+            }
+            match self.service.get_workflow(&self.actor, self.id).await {
+                Ok(record) if Some(record.summary.version) != self.version => {
+                    self.version = Some(record.summary.version);
+                    return Some(Ok(record));
+                }
+                Ok(_) => {}
+                Err(ApiError::NotFound { .. }) if self.version.is_some() => self.done = true,
+                Err(error) => {
+                    self.done = true;
+                    return Some(Err(error));
+                }
+            }
+        }
+        None
     }
 }
 

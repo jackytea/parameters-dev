@@ -85,7 +85,7 @@ jobs:
       - run: rustup toolchain install
       - run: |
           tree=$(cargo tree -p parameters-app --target wasm32-unknown-unknown --features web --edges normal --prefix none --locked)
-          if grep -E '^parameters-(engine|store|service|mcp) ' <<< "$tree"; then
+          if grep -E '^(parameters-(engine|store|service|mcp)|sqlx|rmcp|ring) ' <<< "$tree"; then
             echo "::error::server-only crates are reachable from the web build"
             exit 1
           fi
