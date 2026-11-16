@@ -61,8 +61,9 @@ Open <http://localhost:8080> for the home page, which introduces the language, t
   - Run a workflow and watch each step's status on the graph, with its outputs and log below.
 - **Runs**: every run, with live status, outputs and logs, and a way to cancel.
 - **Nodes** and **Secrets**: the custom node library, including imports that resolve name clashes, and encrypted secrets.
+- **Docs** (`/docs`): a searchable guide to the app, the language, every node this server offers (including your custom nodes), the MCP tools and the server's limits. It is built from the code and the running server, so it always matches the version you use. Press `/` to search; searches can be linked as `/docs?q=…`.
 
-Light and dark themes follow the system unless you pick one. On a narrow screen, switch between the code and the graph.
+Light and dark themes follow the system until you pick one with the sun and moon button. On a narrow screen, switch between the code and the graph.
 
 ## The server
 
@@ -90,6 +91,7 @@ The JSON API lives under `/api`:
 | `GET`, `PUT`, `DELETE /api/workflows/{id}` | Read, update (with the expected `version`) or delete a workflow |
 | `POST /api/check`, `POST /api/convert` | Validate a source without saving it, or convert it between text and JSON (`{"source": ..., "to": "text" or "json"}`) |
 | `GET /api/node-catalog`, `GET /api/node-catalog/{type}` | Every node a workflow can use, built-in and custom, with its inputs, outputs and an example |
+| `GET /api/docs` | What the docs page shows from this server: the nodes you can use (only the built-in ones when signed out), the MCP tools and the limits |
 | `GET /api/workflows/{id}/review`, `POST .../approve` | Review the commands, files, hosts and secrets a workflow uses, and approve it |
 | `POST /api/workflows/{id}/runs` | Start a run with `{"inputs": {...}}` |
 | `GET /api/runs`, `GET /api/runs/{id}`, `POST /api/runs/{id}/cancel` | List, read and cancel runs |

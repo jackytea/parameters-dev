@@ -1,7 +1,8 @@
 use std::time::Duration;
 
 use parameters_api::{
-    ApiError, CreatedToken, DeviceStart, Me, Mode, Scope, Scopes, TokenSummary, UserInfo, Uuid, Via,
+    ApiError, CreatedToken, DeviceStart, Limits, Me, Mode, Scope, Scopes, TokenSummary, UserInfo,
+    Uuid, Via,
 };
 use parameters_store::NewToken;
 use ring::digest::{SHA256, digest};
@@ -475,6 +476,11 @@ impl Service {
             .managed
             .as_ref()
             .is_some_and(|managed| managed.trust_proxy)
+    }
+
+    #[must_use]
+    pub fn limits(&self) -> Limits {
+        self.inner.options.capabilities.limits()
     }
 
     #[must_use]

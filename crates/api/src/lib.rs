@@ -1,4 +1,5 @@
 mod account;
+mod docs;
 mod error;
 mod node;
 mod page;
@@ -11,6 +12,7 @@ mod trigger;
 mod workflow;
 
 pub use account::{CreatedToken, DeviceStart, Me, Mode, Scope, Scopes, TokenSummary, UserInfo};
+pub use docs::{Limits, ServerDocs, ToolDoc};
 pub use error::ApiError;
 pub use node::{
     ImportItem, ImportStatus, NodeInfo, NodeKind, NodeRecord, NodeSummary, PortInfo, Resolution,

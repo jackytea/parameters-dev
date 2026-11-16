@@ -10,7 +10,7 @@ use std::fmt::Write;
 use std::sync::Arc;
 use std::time::Duration;
 
-use parameters_api::{ApiError, Scope, Scopes, Source, Via};
+use parameters_api::{ApiError, NodeKind, Scope, Scopes, Source, Via};
 use parameters_core::{Definition, OrderedMap};
 use parameters_service::{
     Actor, Capabilities, EncryptionKey, Identity, Managed, MemoryMailer, Options, ProviderKind,
@@ -419,4 +419,20 @@ async fn devices_connect_once_a_person_approves_their_code(pool: PgPool) {
         parameters_service::safe_next(Some("/runs")).as_deref(),
         Some("/runs")
     );
+}
+
+#[sqlx::test(migrations = "../store/migrations")]
+async fn signed_out_visitors_see_only_the_public_docs(pool: PgPool) {
+    let (service, _) = managed(&pool).await;
+    let nodes = service.documented_nodes(None).await.unwrap();
+    assert!(nodes.iter().any(|node| node.type_name == "http.request"));
+    assert!(
+        nodes
+            .iter()
+            .all(|node| node.kind == NodeKind::Builtin && !node.privileged)
+    );
+    let limits = service.limits();
+    assert!(!limits.privileged_nodes && !limits.private_network);
+    assert_eq!(limits.max_steps, Some(500));
+    assert_eq!(limits.min_schedule_minutes, Some(5));
 }

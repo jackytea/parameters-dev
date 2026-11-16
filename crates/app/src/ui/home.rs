@@ -215,8 +215,8 @@ fn Calls(signed_out: bool) -> Element {
                 Link { class: "button primary", to: Route::SignIn {}, "Sign in" }
             } else {
                 Link { class: "button primary", to: Route::Workflows {}, "Open your workflows" }
-                Link { class: "button", to: Route::Nodes {}, "Browse nodes" }
             }
+            Link { class: "button", to: Route::Docs { q: String::new() }, "Read the docs" }
         }
     }
 }

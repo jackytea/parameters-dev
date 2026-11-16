@@ -33,10 +33,16 @@ impl Service {
             .collect()
     }
 
-    pub async fn node_catalog(&self, actor: &Actor) -> Result<Vec<NodeInfo>> {
-        actor.require(Scope::Read)?;
+    pub async fn documented_nodes(&self, actor: Option<&Actor>) -> Result<Vec<NodeInfo>> {
+        match actor {
+            Some(actor) if actor.require(Scope::Read).is_ok() => self.node_catalog(actor).await,
+            _ => Ok(self.builtin_catalog()),
+        }
+    }
+
+    fn builtin_catalog(&self) -> Vec<NodeInfo> {
         let registry = self.registry();
-        let mut catalog: Vec<NodeInfo> = registry
+        registry
             .node_types()
             .into_iter()
             .filter(|name| {
@@ -45,7 +51,13 @@ impl Service {
             })
             .filter_map(|name| Some((name, registry.signature(name)?)))
             .map(|(name, signature)| builtin_info(registry, name, signature))
-            .collect();
+            .collect()
+    }
+
+    pub async fn node_catalog(&self, actor: &Actor) -> Result<Vec<NodeInfo>> {
+        actor.require(Scope::Read)?;
+        let registry = self.registry();
+        let mut catalog = self.builtin_catalog();
         let library = self.library(actor.user).await?;
         catalog.extend(
             library

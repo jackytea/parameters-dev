@@ -17,7 +17,7 @@ use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, Stream
 use tokio_util::sync::CancellationToken;
 
 pub use resources::{LANGUAGE_REFERENCE, NODE_TEMPLATE, WORKFLOW_SCHEMA};
-pub use tools::{TOOL_NAMES, definitions as tool_definitions};
+pub use tools::{TOOL_NAMES, definitions as tool_definitions, docs as tool_docs};
 
 const INSTRUCTIONS: &str = "Parameters runs workflow automations written in an English-like language. \
 Read the parameters://reference/language resource before writing a workflow, and use list_nodes and describe_node to choose nodes. \

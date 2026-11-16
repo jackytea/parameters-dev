@@ -12,6 +12,7 @@ use parameters_api::Uuid;
 
 use crate::ui::account::{Account, SignIn};
 use crate::ui::device::Connect;
+use crate::ui::docs::Docs;
 use crate::ui::editor::Editor;
 use crate::ui::home::Home;
 use crate::ui::nodes::Nodes;
@@ -21,6 +22,7 @@ use crate::ui::workflows::Workflows;
 use crate::ui::{NotFound, Shell};
 
 const THEME: Asset = asset!("/assets/theme.css");
+const FAVICON: Asset = asset!("/assets/favicon.ico");
 
 #[cfg(feature = "server")]
 fn main() -> std::process::ExitCode {
@@ -52,6 +54,8 @@ enum Route {
         Nodes {},
         #[route("/secrets")]
         Secrets {},
+        #[route("/docs?:q")]
+        Docs { q: String },
         #[route("/signin")]
         SignIn {},
         #[route("/account")]
@@ -66,6 +70,7 @@ enum Route {
 fn App() -> Element {
     rsx! {
         document::Title { "Parameters" }
+        document::Link { rel: "icon", r#type: "image/x-icon", href: FAVICON }
         document::Stylesheet { href: THEME }
         Router::<Route> {}
     }

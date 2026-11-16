@@ -57,7 +57,54 @@ define node netlify.deploy
   output url: text is upload.body.deploy_url
 "#;
 
-const STATEMENTS: [(&str, &str, &str); 12] = [
+pub const INTRODUCTION: [&str; 2] = [
+    "Parameters workflows are plain text files with the `.parameters` extension. Each file is an exact view of a JSON workflow document: `parameters convert` turns one into the other without losing anything except graph positions, which only the JSON keeps.",
+    "Statements go one per line. Settings and fields belong to the statement above them and are indented by two spaces. There are no comments; use `note` instead, so the description survives in the JSON and the graph.",
+];
+
+pub const EXPRESSIONS_INTRODUCTION: &str = "Values after `is`, `when` and `=` are expressions:";
+
+pub const EXPRESSIONS: [(&str, &str); 8] = [
+    (
+        "Plain values",
+        "text, numbers, `true`, `false`, lists `[a, b]` and objects `{ key: value }`. Object keys that are not simple words go in quotes: `{ \"Content-Type\": \"json\" }`.",
+    ),
+    (
+        "References",
+        "an input by name (`branch`), a step's output (`checkout.path`) or a field inside it (`upload.body.deploy_url`).",
+    ),
+    (
+        "Interpolation",
+        "references in braces inside text, such as `\"{site_dir}/dist\"`. Write `\\{` and `\\}` for literal braces.",
+    ),
+    (
+        "Escapes in text",
+        "`\\\"`, `\\\\`, `\\n`, `\\t`, `\\r`, `\\{`, `\\}` and `\\u{1F600}`.",
+    ),
+    (
+        "Secrets",
+        "`secret \"NAME\"` reads a stored secret by name.",
+    ),
+    (
+        "Step state",
+        "`deploy succeeded`, `deploy failed` and `deploy skipped`.",
+    ),
+    (
+        "Comparisons",
+        "`==`, `!=`, `<`, `<=`, `>` and `>=`. Comparisons cannot be chained.",
+    ),
+    (
+        "Logic",
+        "`not`, then `and`, then `or`, from tightest to loosest. Use parentheses to group differently.",
+    ),
+];
+
+pub const EXPRESSIONS_NOTE: &str = "An expression that only contains plain values is stored as plain JSON; anything else is stored as `{\"$expr\": \"...\"}`. Long lists and objects may continue onto the next lines until their brackets close.";
+
+pub const KEYWORDS_INTRODUCTION: &str =
+    "These words cannot be used as names of steps, inputs, outputs or fields:";
+
+pub const STATEMENTS: [(&str, &str, &str); 12] = [
     (
         "workflow \"Name\"",
         "first line",
@@ -120,7 +167,8 @@ const STATEMENTS: [(&str, &str, &str); 12] = [
     ),
 ];
 
-const fn type_description(value_type: ValueType) -> &'static str {
+#[must_use]
+pub const fn type_description(value_type: ValueType) -> &'static str {
     match value_type {
         ValueType::Text => "Text in double quotes, such as `\"main\"`.",
         ValueType::Number => "A whole or decimal number, such as `3` or `-2.5`.",
@@ -139,10 +187,10 @@ const fn type_description(value_type: ValueType) -> &'static str {
 pub fn reference() -> String {
     let mut out = String::new();
     out.push_str("# Parameters language reference\n\n");
-    out.push_str("Parameters workflows are plain text files with the `.");
-    out.push_str(FILE_EXTENSION);
-    out.push_str("` extension. Each file is an exact view of a JSON workflow document: `parameters convert` turns one into the other without losing anything except graph positions, which only the JSON keeps.\n\n");
-    out.push_str("Statements go one per line. Settings and fields belong to the statement above them and are indented by two spaces. There are no comments; use `note` instead, so the description survives in the JSON and the graph.\n\n");
+    for paragraph in INTRODUCTION {
+        out.push_str(paragraph);
+        out.push_str("\n\n");
+    }
     out.push_str("## Example\n\n```parameters\n");
     out.push_str(EXAMPLE);
     out.push_str("```\n\n## Statements\n\n| Statement | Where | Meaning |\n| --- | --- | --- |\n");
@@ -153,20 +201,18 @@ pub fn reference() -> String {
     for value_type in ValueType::ALL {
         let _ = writeln!(out, "| `{value_type}` | {} |", type_description(value_type));
     }
-    out.push_str(concat!(
-        "\n## Expressions\n\n",
-        "Values after `is`, `when` and `=` are expressions:\n\n",
-        "- **Plain values:** text, numbers, `true`, `false`, lists `[a, b]` and objects `{ key: value }`. Object keys that are not simple words go in quotes: `{ \"Content-Type\": \"json\" }`.\n",
-        "- **References:** an input by name (`branch`), a step's output (`checkout.path`) or a field inside it (`upload.body.deploy_url`).\n",
-        "- **Interpolation:** references in braces inside text, such as `\"{site_dir}/dist\"`. Write `\\{` and `\\}` for literal braces.\n",
-        "- **Escapes in text:** `\\\"`, `\\\\`, `\\n`, `\\t`, `\\r`, `\\{`, `\\}` and `\\u{1F600}`.\n",
-        "- **Secrets:** `secret \"NAME\"` reads a stored secret by name.\n",
-        "- **Step state:** `deploy succeeded`, `deploy failed` and `deploy skipped`.\n",
-        "- **Comparisons:** `==`, `!=`, `<`, `<=`, `>` and `>=`. Comparisons cannot be chained.\n",
-        "- **Logic:** `not`, then `and`, then `or`, from tightest to loosest. Use parentheses to group differently.\n\n",
-        "An expression that only contains plain values is stored as plain JSON; anything else is stored as `{\"$expr\": \"...\"}`. Long lists and objects may continue onto the next lines until their brackets close.\n",
-    ));
-    out.push_str("\n## Reserved keywords\n\nThese words cannot be used as names of steps, inputs, outputs or fields:\n\n");
+    out.push_str("\n## Expressions\n\n");
+    out.push_str(EXPRESSIONS_INTRODUCTION);
+    out.push_str("\n\n");
+    for (title, rule) in EXPRESSIONS {
+        let _ = writeln!(out, "- **{title}:** {rule}");
+    }
+    out.push('\n');
+    out.push_str(EXPRESSIONS_NOTE);
+    out.push('\n');
+    out.push_str("\n## Reserved keywords\n\n");
+    out.push_str(KEYWORDS_INTRODUCTION);
+    out.push_str("\n\n");
     let keywords: Vec<String> = KEYWORDS
         .iter()
         .map(|keyword| format!("`{keyword}`"))

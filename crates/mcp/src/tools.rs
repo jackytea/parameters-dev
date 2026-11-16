@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use parameters_api::{ApiError, NewTrigger, NodeInfo, SavedWorkflow, Source, Uuid};
+use parameters_api::{ApiError, NewTrigger, NodeInfo, SavedWorkflow, Source, ToolDoc, Uuid};
 use parameters_core::to_json;
 use rmcp::ErrorData;
 use rmcp::model::{CallToolResult, JsonObject, Tool, ToolAnnotations};
@@ -218,6 +218,23 @@ fn writing(destructive: bool) -> ToolAnnotations {
         .destructive(destructive)
         .idempotent(false)
         .open_world(false)
+}
+
+#[must_use]
+pub fn docs() -> Vec<ToolDoc> {
+    definitions()
+        .into_iter()
+        .map(|tool| ToolDoc {
+            title: tool.title.clone().unwrap_or_else(|| tool.name.to_string()),
+            description: tool.description.as_deref().unwrap_or_default().to_owned(),
+            read_only: tool
+                .annotations
+                .as_ref()
+                .and_then(|annotations| annotations.read_only_hint)
+                .unwrap_or(false),
+            name: tool.name.to_string(),
+        })
+        .collect()
 }
 
 #[must_use]

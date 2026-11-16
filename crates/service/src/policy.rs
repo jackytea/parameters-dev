@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
+use parameters_api::Limits;
 use parameters_engine::Sandbox;
 
 const PRUNE_ABOVE: usize = 10_000;
@@ -34,6 +35,20 @@ impl Capabilities {
         requests_per_minute: Some(600),
         min_schedule_gap: Some(Duration::from_mins(5)),
     };
+
+    #[must_use]
+    pub fn limits(&self) -> Limits {
+        let minutes = |duration: Duration| duration.as_secs() / 60;
+        Limits {
+            privileged_nodes: self.sandbox.privileged_nodes,
+            private_network: self.sandbox.private_network,
+            max_steps: self.max_steps.and_then(|steps| u64::try_from(steps).ok()),
+            max_run_minutes: self.max_run_time.map(minutes),
+            max_active_runs: self.max_active_runs,
+            requests_per_minute: self.requests_per_minute,
+            min_schedule_minutes: self.min_schedule_gap.map(minutes),
+        }
+    }
 }
 
 struct Bucket {

@@ -22,6 +22,8 @@
   --token-operator: #78716c;
   --grid: #e7e5e4;
   --hero-line: #c4c4c42e;
+  --show-sun: block;
+  --show-moon: none;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "Cascadia Code", Menlo, Consolas, monospace;
   --header-height: 3.5rem;
@@ -52,6 +54,8 @@
     --token-operator: #a8a29e;
     --grid: #292524;
     --hero-line: #4f4f4f2e;
+    --show-sun: none;
+    --show-moon: block;
   }
 }
 
@@ -83,6 +87,8 @@
   --token-operator: #a8a29e;
   --grid: #292524;
   --hero-line: #4f4f4f2e;
+  --show-sun: none;
+  --show-moon: block;
 }
 
 @media (min-width: 40rem) {
@@ -300,9 +306,10 @@ label {
 }
 
 .mark {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  fill: currentColor;
 }
 
 .tabs {
@@ -367,12 +374,20 @@ label {
 
 .social {
   display: flex;
+  align-items: center;
   gap: 16px;
 }
 
 .social a {
+  display: inline-flex;
   color: var(--text-muted);
   text-decoration: none;
+  transition: color 0.15s;
+}
+
+.social .icon {
+  width: 20px;
+  height: 20px;
 }
 
 .social a:hover {
@@ -1166,7 +1181,7 @@ pre.sample {
   }
 
   .showcase {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .showcase-notes {
@@ -1197,5 +1212,184 @@ pre.sample {
 
   .brand {
     margin-right: auto;
+  }
+}
+
+.theme-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-sun {
+  display: var(--show-sun);
+}
+
+.icon-moon {
+  display: var(--show-moon);
+}
+
+.docs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+}
+
+.docs-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.docs-nav input {
+  width: 100%;
+  padding: 8px 10px;
+}
+
+.docs-nav nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.docs-nav nav a {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.docs-nav nav a:hover {
+  color: var(--text);
+}
+
+.docs-body {
+  min-width: 0;
+}
+
+.docs-intro p {
+  margin: 8px 0 0;
+}
+
+.docs-count {
+  font-weight: 600;
+}
+
+.docs-section {
+  border-top: 1px solid var(--border);
+  margin-top: 32px;
+  padding-top: 8px;
+  scroll-margin-top: calc(var(--header-height) + 16px);
+}
+
+.docs-section > h2 {
+  font-size: 22px;
+  letter-spacing: -0.025em;
+}
+
+.docs-section > p {
+  margin: 0 0 8px;
+}
+
+.docs-entry {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  scroll-margin-top: calc(var(--header-height) + 16px);
+}
+
+.docs-entry:last-child {
+  border-bottom: none;
+}
+
+.docs-entry:target {
+  background: var(--surface-raised);
+  box-shadow: -12px 0 0 var(--surface-raised), 12px 0 0 var(--surface-raised);
+}
+
+.docs-entry h3 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.docs-entry h3 .badge {
+  margin-left: 0;
+}
+
+.docs-entry .anchor {
+  text-decoration: none;
+}
+
+.docs-entry .anchor:hover {
+  text-decoration: underline;
+}
+
+.docs-entry p {
+  margin: 6px 0;
+  max-width: 72ch;
+}
+
+.docs-entry p code,
+.docs-section > p code,
+.docs-entry h3 code {
+  padding: 1px 5px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+}
+
+.docs-entry pre.sample {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  padding: 12px 16px;
+}
+
+table.ports {
+  margin-top: 10px;
+  max-width: 560px;
+}
+
+table.ports th,
+table.ports td {
+  padding: 4px 8px;
+}
+
+@media (min-width: 64rem) {
+  .docs {
+    grid-template-columns: 220px minmax(0, 1fr);
+    gap: 40px;
+  }
+
+  .docs-nav {
+    position: sticky;
+    top: calc(var(--header-height) + 24px);
+    align-self: start;
+    max-height: calc(100vh - var(--header-height) - 48px);
+    overflow-y: auto;
+  }
+
+  .docs-nav nav {
+    flex-direction: column;
+    flex-wrap: nowrap;
   }
 }

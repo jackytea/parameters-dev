@@ -5,7 +5,7 @@ use dioxus::prelude::*;
 use parameters_api::{
     CreatedToken, CreatedTrigger, Format, ImportItem, Me, NewTrigger, NodeInfo, NodeRecord,
     NodeSummary, Page, Problem, Resolution, Review, RunState, RunSummary, RunUpdate, SavedWorkflow,
-    Scopes, SecretSummary, Source, TokenSummary, TriggerSummary, Uuid, WorkflowRecord,
+    Scopes, SecretSummary, ServerDocs, Source, TokenSummary, TriggerSummary, Uuid, WorkflowRecord,
     WorkflowSummary,
 };
 use parameters_core::{Definition, OrderedMap};
@@ -267,4 +267,20 @@ pub(crate) async fn set_trigger_enabled(id: Uuid, enabled: bool) -> Result<(), F
 #[delete("/api/triggers/{id}")]
 pub(crate) async fn delete_trigger(id: Uuid) -> Result<(), Failure> {
     Ok(service()?.delete_trigger(&actor()?, id).await?)
+}
+
+#[get("/api/docs")]
+pub(crate) async fn server_docs() -> Result<ServerDocs, Failure> {
+    let service = service()?;
+    let actor = signed_in();
+    Ok(ServerDocs {
+        mode: if service.is_managed() {
+            parameters_api::Mode::Managed
+        } else {
+            parameters_api::Mode::Local
+        },
+        nodes: service.documented_nodes(actor.as_ref()).await?,
+        tools: parameters_mcp::tool_docs(),
+        limits: service.limits(),
+    })
 }
