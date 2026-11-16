@@ -280,7 +280,7 @@ async fn start_oauth(
 ) -> Response {
     match service.start_oauth(&provider) {
         Ok(start) => {
-            let next = safe_next(form.next.as_deref()).unwrap_or_else(|| "/".into());
+            let next = safe_next(form.next.as_deref()).unwrap_or_else(|| "/workflows".into());
             let value = format!(
                 "{provider}.{}.{}.{}",
                 start.state,
@@ -341,7 +341,7 @@ async fn finish_oauth(
     let clear = set_cookie(&service, OAUTH_COOKIE, "", "/auth", 0);
     match service.finish_oauth(&provider, code, verifier).await {
         Ok(session) => {
-            let next = safe_next(unhex(next).as_deref()).unwrap_or_else(|| "/".into());
+            let next = safe_next(unhex(next).as_deref()).unwrap_or_else(|| "/workflows".into());
             signed_in(&service, &session, &next, Some(clear))
         }
         Err(error) => problem(&error),

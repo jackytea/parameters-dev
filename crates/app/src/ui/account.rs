@@ -32,7 +32,7 @@ pub(crate) fn SignIn() -> Element {
     let me = use_context::<Signal<Option<Me>>>();
     let route = use_route::<Route>();
     let next = if matches!(route, Route::SignIn {}) {
-        "/".to_owned()
+        "/workflows".to_owned()
     } else {
         route.to_string()
     };

@@ -13,6 +13,7 @@ use parameters_api::Uuid;
 use crate::ui::account::{Account, SignIn};
 use crate::ui::device::Connect;
 use crate::ui::editor::Editor;
+use crate::ui::home::Home;
 use crate::ui::nodes::Nodes;
 use crate::ui::runs::{RunPage, Runs};
 use crate::ui::secrets::Secrets;
@@ -38,6 +39,8 @@ fn main() {
 enum Route {
     #[layout(Shell)]
         #[route("/")]
+        Home {},
+        #[route("/workflows")]
         Workflows {},
         #[route("/workflows/:id")]
         Editor { id: Uuid },

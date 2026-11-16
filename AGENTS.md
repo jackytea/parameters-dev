@@ -60,7 +60,7 @@ Dependencies only point toward `core`:
 - Every service method that takes an `Actor` starts with `actor.require(Scope::…)`; every query is scoped by `actor.user`. The app's auth middleware (`crates/app/src/server/auth.rs`) is the only place that turns cookies and tokens into an `Actor`.
 - Tokens, sessions and sign-in links are random 32-byte values; only their SHA-256 hashes are stored.
 - Conventional Commits with a scope, such as `feat(core): ...`. Types: `feat`, `fix`, `docs`, `chore`, `style`, `refactor`, `ci`, `test`, `revert`, `perf`. No AI attribution lines in commits or pull requests.
-- UI: square edges (no border radius), theme tokens in CSS custom properties, light and dark modes.
+- UI: square edges (no border radius), theme tokens in CSS custom properties, light and dark (stone black) modes. Pages sit in the centered `.frame` container with side borders; `/` is the home page (`crates/app/src/ui/home.rs`) and the app starts at `/workflows`, where sign-ins land by default.
 - Native-only code (`crates/app/src/native.rs`, `ui::device::native`) is gated by the `desktop` and `mobile` features; native builds talk to the server with a bearer session from the device sign-in (`/auth/device`), never with cookies.
 - Releases come only from the tag-triggered release workflow; pin every action to a commit SHA, and keep signing optional behind repository secrets.
 - UI data loads on the client only (`on_client()` in `crates/app/src/ui/common.rs`), so the server-rendered page and the first client render match. Live views use the server-sent event endpoints and reconnect after a pause.

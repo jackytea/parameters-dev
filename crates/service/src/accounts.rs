@@ -183,7 +183,7 @@ impl Service {
             .map_err(internal)?;
         Ok(SignedIn {
             session: self.new_session(user).await?,
-            next: safe_next(next.as_deref()).unwrap_or_else(|| "/".into()),
+            next: safe_next(next.as_deref()).unwrap_or_else(|| "/workflows".into()),
         })
     }
 

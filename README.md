@@ -50,9 +50,9 @@ cargo run -p parameters-cli -- run examples/hello.parameters --input name=Ada
 
 ## The app
 
-Open <http://localhost:8080>. The app has four sections:
+Open <http://localhost:8080> for the home page, which introduces the language, the built-in nodes and the editions. The app has these sections:
 
-- **Workflows**: create, import (text or JSON, pasted or from a file), duplicate and delete workflows.
+- **Workflows** (`/workflows`): create, import (text or JSON, pasted or from a file), duplicate and delete workflows.
 - **Editor**: the code and the graph side by side, kept in sync.
   - Build in the graph: add steps, drag a step's right-hand port onto another step to make it wait, click a connection to remove it, and edit the selected step in the inspector.
   - Or write the workflow as text. While the text has a syntax error, the graph is read-only.

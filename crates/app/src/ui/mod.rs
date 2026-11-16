@@ -2,6 +2,7 @@ pub(crate) mod account;
 pub(crate) mod common;
 pub(crate) mod device;
 pub(crate) mod editor;
+pub(crate) mod home;
 pub(crate) mod nodes;
 pub(crate) mod runs;
 pub(crate) mod secrets;
@@ -36,46 +37,86 @@ pub(crate) fn Shell() -> Element {
     let user = current.and_then(|me| me.user);
     let signed_out = managed && user.is_none() && loaded.read().is_some();
     let route = use_route::<Route>();
+    let home = matches!(route, Route::Home {});
+    let frame = if home { "frame landing" } else { "frame" };
     rsx! {
-        header { class: "topbar",
-            Link { class: "brand", to: Route::Workflows {}, "Parameters" }
-            if !signed_out {
-                nav { class: "tabs",
-                    Link { to: Route::Workflows {}, active_class: "active", "Workflows" }
-                    Link { to: Route::Runs {}, active_class: "active", "Runs" }
-                    Link { to: Route::Nodes {}, active_class: "active", "Nodes" }
-                    Link { to: Route::Secrets {}, active_class: "active", "Secrets" }
-                    Link { to: Route::Account {}, active_class: "active", "Account" }
-                }
-            }
-            ThemeToggle {}
-            if managed {
-                if let Some(user) = user {
-                    div { class: "signout",
-                        span { class: "muted", "{user.display_name}" }
-                        button {
-                            class: "quiet",
-                            r#type: "button",
-                            onclick: move |_| async move {
-                                if cfg!(any(feature = "desktop", feature = "mobile")) {
-                                    #[cfg(any(feature = "desktop", feature = "mobile"))]
-                                    crate::native::sign_out().await;
-                                    loaded.restart();
-                                } else {
-                                    script(
-                                        "fetch('/auth/signout', { method: 'POST', credentials: 'same-origin' })
-                                         .finally(() => location.assign('/signin'));",
-                                    );
+        div { class: "app",
+            header { class: "topbar",
+                div { class: "frame",
+                    Link { class: "brand", to: Route::Home {},
+                        Mark {}
+                        span { "Parameters" }
+                    }
+                    nav { class: "tabs",
+                        if !signed_out {
+                            Link { to: Route::Workflows {}, active_class: "active", "Workflows" }
+                            Link { to: Route::Runs {}, active_class: "active", "Runs" }
+                            Link { to: Route::Nodes {}, active_class: "active", "Nodes" }
+                            Link { to: Route::Secrets {}, active_class: "active", "Secrets" }
+                            Link { to: Route::Account {}, active_class: "active", "Account" }
+                        }
+                    }
+                    ThemeToggle {}
+                    if signed_out && !matches!(route, Route::SignIn {}) {
+                        Link { class: "button", to: Route::SignIn {}, "Sign in" }
+                    }
+                    if managed {
+                        if let Some(user) = user {
+                            div { class: "signout",
+                                span { class: "muted", "{user.display_name}" }
+                                button {
+                                    class: "quiet",
+                                    r#type: "button",
+                                    onclick: move |_| async move {
+                                        if cfg!(any(feature = "desktop", feature = "mobile")) {
+                                            #[cfg(any(feature = "desktop", feature = "mobile"))]
+                                            crate::native::sign_out().await;
+                                            loaded.restart();
+                                        } else {
+                                            script(
+                                                "fetch('/auth/signout', { method: 'POST', credentials: 'same-origin' })
+                                                 .finally(() => location.assign('/signin'));",
+                                            );
+                                        }
+                                    },
+                                    "Sign out"
                                 }
-                            },
-                            "Sign out"
+                            }
                         }
                     }
                 }
             }
+            main { class: "page",
+                div { class: frame,
+                    {page(unreachable, signed_out, &route, move || loaded.restart())}
+                }
+            }
+            footer { class: "site-footer",
+                div { class: "frame",
+                    p { "© Parameters" }
+                    nav { class: "social",
+                        a { href: "https://github.com/parameters-dev", target: "_blank", rel: "noopener noreferrer", "GitHub" }
+                        a { href: "https://www.linkedin.com/company/parameters-dot-dev", target: "_blank", rel: "noopener noreferrer", "LinkedIn" }
+                        a { href: "https://x.com/parameters_dev", target: "_blank", rel: "noopener noreferrer", "X" }
+                    }
+                }
+            }
         }
-        main { class: "page",
-            {page(unreachable, signed_out, &route, move || loaded.restart())}
+    }
+}
+
+#[component]
+fn Mark() -> Element {
+    rsx! {
+        svg {
+            class: "mark",
+            view_box: "0 0 24 24",
+            width: "20",
+            height: "20",
+            "aria-hidden": "true",
+            rect { x: "2", y: "3", width: "7", height: "7" }
+            rect { x: "15", y: "14", width: "7", height: "7" }
+            path { d: "M9 6.5h4.5v11H15" }
         }
     }
 }
@@ -113,7 +154,7 @@ fn page(
     _retry: impl FnMut() + Clone + 'static,
 ) -> Element {
     use crate::ui::account::SignIn;
-    if signed_out && !matches!(route, Route::SignIn {}) {
+    if signed_out && !matches!(route, Route::SignIn {} | Route::Home {}) {
         rsx! {
             SignIn {}
         }

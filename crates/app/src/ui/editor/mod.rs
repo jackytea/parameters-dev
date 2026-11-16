@@ -1,4 +1,4 @@
-mod code;
+pub(crate) mod code;
 mod graph;
 mod inspector;
 mod triggers;

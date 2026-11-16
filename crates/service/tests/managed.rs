@@ -142,10 +142,9 @@ async fn identities_join_accounts_only_through_verified_emails(pool: PgPool) {
         .and_then(|rest| rest.split_whitespace().next())
         .unwrap()
         .to_owned();
-    let by_email = service
-        .session_actor(&service.finish_email_sign_in(&token).await.unwrap().session)
-        .await
-        .unwrap();
+    let signed_in = service.finish_email_sign_in(&token).await.unwrap();
+    assert_eq!(signed_in.next, "/workflows");
+    let by_email = service.session_actor(&signed_in.session).await.unwrap();
     let verified = service
         .session_actor(
             &service
